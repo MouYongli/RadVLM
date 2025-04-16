@@ -13,7 +13,7 @@ authors = [
 ]
 license = { text = "MIT" }
 readme = "README.md"  # Optional
-requires-python = "==3.12"  # Adjust as needed
+requires-python = ">=3.10"  # Adjust as needed
 urls = { "Homepage" = "https://github.com/MouYongli/RadVLM" }
 classifiers = [
     "Development Status :: 1 - Alpha",
