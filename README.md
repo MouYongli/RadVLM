@@ -36,26 +36,95 @@ This is official repo for "RadVLM: Vision Language Models for Radiology Report G
 
 ## Installation
 
-#### Anaconda
-1. create conda environment
+### Anaconda
+
+#### DeepSeek-VL2
+1. Clone DeepSeek-VL2 repository
 ```bash
-conda create --name dugle python=3.11
-conda activate dugle
+git clone https://github.com/deepseek-ai/DeepSeek-VL2.git
 ```
 
-2. Install Jupyter lab and kernel
-```bash
-conda install -c conda-forge jupyterlab
-conda install ipykernel
+2. Update requirements.txt in DeepSeek-VL2 folder
+```text
+transformers==4.38.2
+xformers==0.0.29.post3
+timm==1.0.15
+accelerate==1.4.0
+sentencepiece==0.2.0
+attrdict==2.0.1
+einops==0.8.1
+
+# for gradio demo
+#gradio==3.48.0
+#gradio-client==0.6.1
+#mdtex2html==1.3.0
+#pypinyin==0.50.0
+#tiktoken==0.5.2
+#tqdm==4.64.0
+#colorama==0.4.5
+#Pygments==2.12.0
+#markdown==3.4.1
+#SentencePiece==0.1.96
 ```
 
-3. Install dependencies
+3. Update pyproject.toml in DeepSeek-VL2 folder
+```TOML
+[build-system]
+requires = ["setuptools>=40.6.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deepseek_vl2"
+version = "1.0.0"
+description = "DeepSeek-VL2"
+authors = [{name = "DeepSeek-AI"}]
+license = {file = "LICENSE-CODE"}
+urls = {homepage = "https://github.com/deepseek-ai/DeepSeek-VL2"}
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "transformers==4.38.2",
+    "xformers== 0.0.29.post3",
+    "timm==1.0.15",
+    "accelerate==1.4.0",
+    "sentencepiece==0.2.0",
+    "attrdict==2.0.1",
+    "einops==0.8.1",
+]
+
+[tool.setuptools]
+packages = {find = {exclude = ["images"]}}
+```
+
+4. Create conda environment
+```bash
+conda create --name deepseekenv python=3.10
+conda activate deepseekenv
+cd DeepSeek-VL2
+```
+
+5. Install dependencies
 ```bash          
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126 # torch==2.6.0+cu126, torchvision==0.21.0+cu126, torchaudio==2.6.0+cu126
-pip install torch_geometric # torch_geometric==2.6.1torch_spline_conv-1.2.2+pt25cu124
+pip install torch torchvision torchaudio
+pip install -r requirements.txt
 pip install -e .
 ```
-#### Docker
+
+#### Qwen2.5-VL
+
+1. Create conda environment
+```bash
+conda create --name qwenenv python
+conda activate qwenenv
+```
+
+5. Install dependencies
+```bash          
+pip install transformers==4.51.3 accelerate
+pip install qwen-vl-utils[decord]
+```
+
+### Docker
 
 ## Datasets
 
@@ -73,7 +142,7 @@ model = RadVLM.load_pretrained("base")
 
 ## Project Structure
 ```
-📦 Dugle
+📦 RadVLM
 ├── 📁 data         # Sample datasets and preprocessing scripts
 ├── 📁 models           # Pre-trained models and checkpoints
 ├── 📁 notebooks        # Jupyter notebooks with tutorials
