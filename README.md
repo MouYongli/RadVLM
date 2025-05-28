@@ -30,11 +30,11 @@
 This is official repo for "RadVLM: Vision Language Models for Radiology Report Generation" by DBIS group at RWTH Aachen University
 ([Yongli Mou*](mou@dbis.rwth-aachen.de), Antonia Gustke and Stefan Decker)
 
-## Overview
+## 1. Overview
 
 **RadVLM** is a research project focused on enhancing radiology report generation using Vision-Language Models (VLMs). It integrates reasoning and knowledge graph retrieval to improve accuracy and contextual understanding. The repository provides tools for dataset preprocessing, model training, and evaluation, along with pre-trained models and benchmarks.
 
-## Installation
+## 2. Installation
 
 ```bash
 git clone https://github.com/MouYongli/RadVLM.git
@@ -46,79 +46,54 @@ cd RadVLM
 Because the DeepSeek-VL2 and Qwen2.5-VL require different versions of dependencies, we need to install them in separate conda environments.
 
 ```bash
-cd baselines
+export PROJECT_ROOT=$(pwd)
 ```
 
 1. DeepSeek-VL2
 ```bash
-# Create a new conda environment for DeepSeek-VL2
-conda create --name deepseekenv python=3.10
-conda activate deepseekenv
+cd $PROJECT_ROOT/baselines
+mkdir deepseek
 # Clone the DeepSeek-VL2 repository
 git clone https://github.com/deepseek-ai/DeepSeek-VL2.git
 mv DeepSeek-VL2/* deepseek
 rm -rf DeepSeek-VL2
 # Update requirements.txt in DeepSeek-VL2 folder
-mv requirements.deepseek.txt deepseek/requirements.txt
+cp requirements.deepseek.txt deepseek/requirements.txt
 #  Update pyproject.toml in DeepSeek-VL2 folder
-mv pyproject.deepseek.toml deepseek/pyproject.toml
+cp pyproject.deepseek.toml deepseek/pyproject.toml
 # Install dependencies and install the deepseek-vl2 package
 cd deepseek
+# Create a new conda environment for DeepSeek-VL2
+conda create --name deepseekenv python=3.10
+conda activate deepseekenv
 pip install -r requirements.txt
 pip install -e .
-```
-
-```text
-transformers==4.38.2
-xformers==0.0.29.post3
-timm==1.0.15
-accelerate==1.4.0
-sentencepiece==0.2.0
-attrdict==2.0.1
-einops==0.8.1
-```
-
-```TOML
-[build-system]
-requires = ["setuptools>=40.6.0", "wheel"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "deepseek_vl2"
-version = "1.0.0"
-description = "DeepSeek-VL2"
-authors = [{name = "DeepSeek-AI"}]
-license = {file = "LICENSE-CODE"}
-urls = {homepage = "https://github.com/deepseek-ai/DeepSeek-VL2"}
-readme = "README.md"
-requires-python = ">=3.8"
-dependencies = [
-    "transformers==4.38.2",
-    "xformers== 0.0.29.post3",
-    "timm==1.0.15",
-    "accelerate==1.4.0",
-    "sentencepiece==0.2.0",
-    "attrdict==2.0.1",
-    "einops==0.8.1",
-]
-
-[tool.setuptools]
-packages = {find = {exclude = ["images"]}}
+# Install PyTorch with CUDA 12.6
+# For other version, please refer to https://pytorch.org/get-started/locally, for example:
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+pip install torch torchvision torchaudio 
 ```
 
 2. Qwen2.5-VL
 
 ```bash
+cd $PROJECT_ROOT/baselines
+mkdir qwen
 conda create --name qwenenv python=3.10
 conda activate qwenenv
+cp requirements.qwen.txt qwen/requirements.txt
+cd qwen
+pip install -r requirements.txt
 ```
 
-Install dependencies:
-```bash          
-pip install transformers==4.51.3 accelerate
-pip install qwen-vl-utils[decord]
+3. Our project and dependencies
+```bash
+cd $PROJECT_ROOT
+conda activate deepseekenv
+pip install -e .
+conda activate qwenenv
+pip install -e .
 ```
-
 
 ## Datasets
 
