@@ -9,6 +9,7 @@ description = "RadVLM: Vision Language Models for Radiology Report Generation"
 authors = [
     { name = "Mou YongLi", email = "mou@dbis.rwth-aachen.de" },
     { name = "Antonia Gustke" },
+    { name = "Er Jin" },
     { name = "Stefan Decker" }
 ]
 license = { text = "MIT" }
@@ -24,7 +25,6 @@ classifiers = [
 ]
 
 dependencies = [
-    "transformers",
 ]
 
 [tool.setuptools]

@@ -30,41 +30,87 @@
 This is official repo for "RadVLM: Vision Language Models for Radiology Report Generation" by DBIS group at RWTH Aachen University
 ([Yongli Mou*](mou@dbis.rwth-aachen.de), Antonia Gustke and Stefan Decker)
 
-## Overview
+## 1. Overview
 
 **RadVLM** is a research project focused on enhancing radiology report generation using Vision-Language Models (VLMs). It integrates reasoning and knowledge graph retrieval to improve accuracy and contextual understanding. The repository provides tools for dataset preprocessing, model training, and evaluation, along with pre-trained models and benchmarks.
 
-## Installation
+## 2. Installation
 
-#### Anaconda
-1. create conda environment
 ```bash
-conda create --name dugle python=3.11
-conda activate dugle
+git clone https://github.com/MouYongli/RadVLM.git
+cd RadVLM
 ```
 
-2. Install Jupyter lab and kernel
+### Anaconda
+
+Because the DeepSeek-VL2 and Qwen2.5-VL require different versions of dependencies, we need to install them in separate conda environments.
+
 ```bash
-conda install -c conda-forge jupyterlab
-conda install ipykernel
+export PROJECT_ROOT=$(pwd)
 ```
 
-3. Install dependencies
-```bash          
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126 # torch==2.6.0+cu126, torchvision==0.21.0+cu126, torchaudio==2.6.0+cu126
-pip install torch_geometric # torch_geometric==2.6.1torch_spline_conv-1.2.2+pt25cu124
+1. DeepSeek-VL2
+```bash
+cd $PROJECT_ROOT/baselines
+mkdir deepseek
+# Clone the DeepSeek-VL2 repository
+git clone https://github.com/deepseek-ai/DeepSeek-VL2.git
+mv DeepSeek-VL2/* deepseek
+rm -rf DeepSeek-VL2
+# Update requirements.txt in DeepSeek-VL2 folder
+cp requirements.deepseek.txt deepseek/requirements.txt
+#  Update pyproject.toml in DeepSeek-VL2 folder
+cp pyproject.deepseek.toml deepseek/pyproject.toml
+# Install dependencies and install the deepseek-vl2 package
+cd deepseek
+# Create a new conda environment for DeepSeek-VL2
+conda create --name deepseekenv python=3.10
+conda activate deepseekenv
+pip install -r requirements.txt
+pip install -e .
+# Install PyTorch with CUDA 12.6
+# For other version, please refer to https://pytorch.org/get-started/locally, for example:
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+pip install torch torchvision torchaudio 
+```
+
+2. Qwen2.5-VL
+
+```bash
+cd $PROJECT_ROOT/baselines
+mkdir qwen
+conda create --name qwenenv python=3.10
+conda activate qwenenv
+cp requirements.qwen.txt qwen/requirements.txt
+cd qwen
+pip install -r requirements.txt
+```
+
+3. Our project and dependencies
+```bash
+cd $PROJECT_ROOT
+conda activate deepseekenv
+pip install -e .
+conda activate qwenenv
 pip install -e .
 ```
-#### Docker
 
 ## Datasets
 
 ### Download datasets
 
+- MIMIC-CXR: https://physionet.org/content/mimic-cxr/2.0.0/
+- ChestExpert
+
+
+
+
+
+
 
 ## Usage
 
-Here’s an example of how to use the model:
+Here's an example of how to use the model:
 
 ```python
 from radvlm.models.modeling_radvlm import RadVLM
@@ -73,7 +119,7 @@ model = RadVLM.load_pretrained("base")
 
 ## Project Structure
 ```
-📦 Dugle
+📦 RadVLM
 ├── 📁 data         # Sample datasets and preprocessing scripts
 ├── 📁 models           # Pre-trained models and checkpoints
 ├── 📁 notebooks        # Jupyter notebooks with tutorials

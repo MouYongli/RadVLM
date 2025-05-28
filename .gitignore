@@ -172,3 +172,8 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+
+# RadVLM
+baselines/deepseek/
+baselines/qwen/
