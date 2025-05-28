@@ -36,15 +36,38 @@ This is official repo for "RadVLM: Vision Language Models for Radiology Report G
 
 ## Installation
 
-### Anaconda
-
-#### DeepSeek-VL2
-1. Clone DeepSeek-VL2 repository
 ```bash
-git clone https://github.com/deepseek-ai/DeepSeek-VL2.git
+git clone https://github.com/MouYongli/RadVLM.git
+cd RadVLM
 ```
 
-2. Update requirements.txt in DeepSeek-VL2 folder
+### Anaconda
+
+Because the DeepSeek-VL2 and Qwen2.5-VL require different versions of dependencies, we need to install them in separate conda environments.
+
+```bash
+cd baselines
+```
+
+1. DeepSeek-VL2
+```bash
+# Create a new conda environment for DeepSeek-VL2
+conda create --name deepseekenv python=3.10
+conda activate deepseekenv
+# Clone the DeepSeek-VL2 repository
+git clone https://github.com/deepseek-ai/DeepSeek-VL2.git
+mv DeepSeek-VL2/* deepseek
+rm -rf DeepSeek-VL2
+# Update requirements.txt in DeepSeek-VL2 folder
+mv requirements.deepseek.txt deepseek/requirements.txt
+#  Update pyproject.toml in DeepSeek-VL2 folder
+mv pyproject.deepseek.toml deepseek/pyproject.toml
+# Install dependencies and install the deepseek-vl2 package
+cd deepseek
+pip install -r requirements.txt
+pip install -e .
+```
+
 ```text
 transformers==4.38.2
 xformers==0.0.29.post3
@@ -53,10 +76,8 @@ accelerate==1.4.0
 sentencepiece==0.2.0
 attrdict==2.0.1
 einops==0.8.1
-
 ```
 
-3. Update pyproject.toml in DeepSeek-VL2 folder
 ```TOML
 [build-system]
 requires = ["setuptools>=40.6.0", "wheel"]
@@ -85,43 +106,36 @@ dependencies = [
 packages = {find = {exclude = ["images"]}}
 ```
 
-4. Create conda environment
+2. Qwen2.5-VL
+
 ```bash
-conda create --name deepseekenv python=3.10
-conda activate deepseekenv
-cd DeepSeek-VL2
-```
-
-5. Install dependencies
-```bash          
-pip install torch torchvision torchaudio
-pip install -r requirements.txt
-```
-
-#### Qwen2.5-VL
-
-1. Create conda environment
-```bash
-conda create --name qwenenv python
+conda create --name qwenenv python=3.10
 conda activate qwenenv
 ```
 
-5. Install dependencies
+Install dependencies:
 ```bash          
 pip install transformers==4.51.3 accelerate
 pip install qwen-vl-utils[decord]
 ```
 
-### Docker
 
 ## Datasets
 
 ### Download datasets
 
+- MIMIC-CXR: https://physionet.org/content/mimic-cxr/2.0.0/
+- ChestExpert
+
+
+
+
+
+
 
 ## Usage
 
-Here’s an example of how to use the model:
+Here's an example of how to use the model:
 
 ```python
 from radvlm.models.modeling_radvlm import RadVLM
