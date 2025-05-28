@@ -23,10 +23,10 @@ if __name__ == "__main__":
     
     # input_image_path = "data/s50010747.jpg"  # Example image path, adjust as needed
 
-    # print("Running Qwen...")
-    # output_qwen = run_in_env("qwenenv", qwen_script_path, input_image_path, input_text)
-    # print(output_qwen)
+    print("Running Qwen...")
+    output_qwen = run_in_env("qwenenv", qwen_script_path, input_image_path, input_text)
+    print(output_qwen)
 
     print("Running DeepSeek...")
-    output_deepseek = run_in_env("deepseekenv2", deepseek_script_path, input_image_path, input_text)
+    output_deepseek = run_in_env("deepseekenv", deepseek_script_path, input_image_path, input_text)
     print(output_deepseek)
