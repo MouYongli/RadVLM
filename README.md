@@ -54,17 +54,6 @@ sentencepiece==0.2.0
 attrdict==2.0.1
 einops==0.8.1
 
-# for gradio demo
-#gradio==3.48.0
-#gradio-client==0.6.1
-#mdtex2html==1.3.0
-#pypinyin==0.50.0
-#tiktoken==0.5.2
-#tqdm==4.64.0
-#colorama==0.4.5
-#Pygments==2.12.0
-#markdown==3.4.1
-#SentencePiece==0.1.96
 ```
 
 3. Update pyproject.toml in DeepSeek-VL2 folder
@@ -107,7 +96,6 @@ cd DeepSeek-VL2
 ```bash          
 pip install torch torchvision torchaudio
 pip install -r requirements.txt
-pip install -e .
 ```
 
 #### Qwen2.5-VL
