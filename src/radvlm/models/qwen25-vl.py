@@ -74,9 +74,13 @@ def run_qwen25_vl(input_image_path: str, input_text: str) -> str:
     return output_text[0] if output_text else "No response generated."
 
 if __name__ == "__main__":
-
-    input_image_path = sys.argv[1]
-    input_text = sys.argv[2]
-    
-    response = run_qwen25_vl(input_image_path, input_text)
-    print(response)
+    try:
+        conda_env = os.environ.get("CONDA_DEFAULT_ENV")
+        if conda_env != "qwenenv":
+            raise EnvironmentError(f"Please activate the 'qwenenv' conda environment before running this script.")
+        input_image_path = sys.argv[1]
+        input_text = sys.argv[2]
+        response = run_qwen25_vl(input_image_path, input_text)
+        print(response)
+    except Exception as e:
+        print(f"Error: {e}")

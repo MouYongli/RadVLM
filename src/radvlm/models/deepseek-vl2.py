@@ -94,10 +94,15 @@ def run_deepseek_vl2(input_image_path: str, input_text: list) -> str:
     # answer)
 
 if __name__ == "__main__":
-    # print(os.path.abspath(os.path.join(here, "..", "..", ".." , "models/checkpoints/DeepSeek-VL2")))
-    
-    # print("system path:", sys.path)
-    input_image_path = sys.argv[1]
-    input_text = sys.argv[2]
-    response = run_deepseek_vl2(input_image_path, input_text)
-    print(response)
+    try:
+        # Check if correct conda environment is activated
+        conda_env = os.environ.get("CONDA_DEFAULT_ENV")
+        if conda_env != "deepseekenv":
+            raise EnvironmentError(f"Please activate the 'deepseekenv' conda environment. Current environment: {conda_env}")
+        input_image_path = sys.argv[1]
+        input_text = sys.argv[2]
+        response = run_deepseek_vl2(input_image_path, input_text)
+        print(response)
+    except Exception as e:
+        print(f"Error: {e}")
+        
