@@ -1,12 +1,14 @@
 import sys
-sys.path.append("/home/gustke/Projects/Deepseek_Tutorial/DeepSeek-VL2")
-
 import os
+
+here = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.abspath(os.path.join(here, "..", "..", ".." , "models/checkpoints")))  # Adjust the path as needed
+
 
 import torch
 
 from transformers import AutoModelForCausalLM
-here = os.path.dirname(os.path.abspath(__file__))
+
 
 
 
@@ -92,7 +94,9 @@ def run_deepseek_vl2(input_image_path: str, input_text: list) -> str:
     # answer)
 
 if __name__ == "__main__":
+    # print(os.path.abspath(os.path.join(here, "..", "..", ".." , "models/checkpoints/DeepSeek-VL2")))
     
+    # print("system path:", sys.path)
     input_image_path = sys.argv[1]
     input_text = sys.argv[2]
     response = run_deepseek_vl2(input_image_path, input_text)
