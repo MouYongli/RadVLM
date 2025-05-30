@@ -84,6 +84,7 @@ conda activate qwenenv
 cp requirements.qwen.txt qwen/requirements.txt
 cd qwen
 pip install -r requirements.txt
+pip install torch torchvision torchaudio
 ```
 
 3. Our project and dependencies

@@ -15,7 +15,7 @@ if __name__ == "__main__":
     input_text = "Generate a radiology report for this X-ray."
     here = os.path.dirname(os.path.abspath(__file__))
     # Build the path to the image in the data folder
-    input_image_path = os.path.join(here, "..", "data", "s50010747.jpg")
+    input_image_path = "/home/gustke/Projects/RadVLM/data/mimic-cxr.example.jpg"
     input_image_path = os.path.abspath(input_image_path)
     # Build the path to the scripts
     qwen_script_path = os.path.join(here, "qwen25-vl.py")
