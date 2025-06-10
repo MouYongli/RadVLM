@@ -12,75 +12,13 @@ sys.path.append('/home/gustke/Projects/RadVLM')
 import os
 import torch.nn.functional as F
 
-from src.radvlm import build_dataset
+from deepseek_vl2.models import DeepseekVLV2Processor, DeepseekVLV2ForCausalLM
+
+from src.radvlm.data import radvlm_dataset
 
 here = os.path.dirname(os.path.abspath(__file__))
 # sys.path.append(os.path.abspath(os.path.join(here, "..", "..", ".." , "models/checkpoints")))  # Adjust the path as needed
 
-from deepseek_vl2.models import DeepseekVLV2Processor, DeepseekVLV2ForCausalLM
-from deepseek_vl2.utils.io import load_pil_images
-
-
-class RadVLMDataset(Dataset):
-    def __init__(self, data, processor, tokenizer, max_seq_length=2048):
-        self.data = data
-        self.processor = processor
-        self.tokenizer = tokenizer
-        self.max_seq_length = max_seq_length
-
-    def __len__(self):
-        return len(self.data)
-
-    
-
-    def __getitem__(self, idx):
-        item = self.data[idx]
-        images = item["images"]
-        report = item["content"]
-
-        conversation = [
-            {
-            "role": "<|User|>",
-            "content": "<image>"*len(images) + "\n Generate a radiology report for these X-rays.",
-            "images": images,
-            },
-            {"role": "<|Assistant|>", "content": ""},
-        ]
-
-        images = load_pil_images(conversation)
-
-        inputs = self.processor(
-            conversations=conversation,
-            images=images,
-            force_batchify=True,
-            system_prompt="",
-            padding="max_length",
-            max_length=self.max_seq_length,
-            truncation=True
-        )
-
-        input_ids = inputs.input_ids.squeeze(0)
-        attention_mask = inputs.attention_mask.squeeze(0)
-
-        # Pad/truncate input_ids and attention_mask to max_seq_length
-        input_ids = F.pad(input_ids, (0, self.max_seq_length - input_ids.shape[0]))[:self.max_seq_length]
-        attention_mask = F.pad(attention_mask, (0, self.max_seq_length - attention_mask.shape[0]))[:self.max_seq_length]
-
-        labels = self.tokenizer(
-            report,
-            return_tensors="pt",
-            padding="max_length",
-            max_length=self.max_seq_length,
-            truncation=True
-        ).input_ids.squeeze(0)
-
-        return {
-            "input_ids": input_ids,
-            "attention_mask": attention_mask,
-            "labels": labels,
-        }
-    
-# === Load processor, tokenizer, model ===
 model_path = "deepseek-ai/deepseek-vl2-tiny"
 vl_chat_processor: DeepseekVLV2Processor = DeepseekVLV2Processor.from_pretrained(model_path)
 tokenizer = vl_chat_processor.tokenizer
@@ -108,8 +46,7 @@ lora_config = LoraConfig(
 vl_gpt = get_peft_model(vl_gpt, lora_config)
 
 if __name__ == "__main__":
-    raw_data = build_dataset.load_dataset()
-    dataset = RadVLMDataset(raw_data, vl_chat_processor, tokenizer, max_seq_length=2048)
+    
     print("Training the model...")
     # train_model(dataset, optimizer)
     data_collator = default_data_collator
@@ -131,8 +68,8 @@ if __name__ == "__main__":
     trainer = Trainer(
         model=vl_gpt,
         args=training_args,
-        train_dataset=dataset,
-        eval_dataset=dataset,
+        train_dataset=radvlm_dataset,
+        eval_dataset=radvlm_dataset,
         tokenizer=tokenizer,
         data_collator=data_collator,
     )

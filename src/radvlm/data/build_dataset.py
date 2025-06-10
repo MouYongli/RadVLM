@@ -13,11 +13,11 @@ def load_dataset() -> list:
 
     try:
         # Load images and texts from the dataset
-        if not os.path.exists(os.path.join(here, "..", "..", "data", "raw", "MIMIC-CXR-JPG", "p10")):
+        if not os.path.exists(os.path.join(here, "..", "..", "..", "data", "raw", "MIMIC-CXR-JPG", "p10")):
             print("Dataset directory does not exist.")
             return []
         
-        data_dir = os.path.join(here, "..", "..", "data", "raw", "MIMIC-CXR-JPG", "p10")
+        data_dir = os.path.join(here, "..", "..", "..", "data", "raw", "MIMIC-CXR-JPG", "p10")
         for root, _, files in os.walk(data_dir):
             for file in files:
                 if file.endswith('.txt'):
@@ -42,9 +42,9 @@ def load_dataset() -> list:
         print(f"Error loading dataset: {e}")
         return []
     
-if __name__ == "__main__":
-    dataset = load_dataset()
-    if dataset:
-        print(f"Loaded {len(dataset)} items from the dataset.")
-    else:
-        print("No items loaded from the dataset.")
+# if __name__ == "__main__":
+#     dataset = load_dataset()
+#     if dataset:
+#         print(f"Loaded {len(dataset)} items from the dataset.")
+#     else:
+#         print("No items loaded from the dataset.")
