@@ -48,8 +48,8 @@ try:
 
         training_args = TrainingArguments(
             output_dir="./results",
-            per_device_train_batch_size=4,
-            per_device_eval_batch_size=4,
+            per_device_train_batch_size=1,
+            per_device_eval_batch_size=1,
             num_train_epochs=3,
             eval_strategy="steps",
             save_strategy="steps",
@@ -58,6 +58,7 @@ try:
             learning_rate=5e-5,
             weight_decay=0.01,
             fp16=True,  # if using GPU with float16 support
+
         )
 
         # Initialize Trainer or your custom training loop here

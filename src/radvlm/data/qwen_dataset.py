@@ -43,7 +43,6 @@ class RadVLMDatasetQwen(Dataset):
             padding=True,
             return_tensors="pt",
         )
-        inputs = inputs.to(self.model.device)
 
         # Pad/truncate input_ids and attention_mask to max_seq_length
         input_ids = inputs.input_ids.squeeze(0)

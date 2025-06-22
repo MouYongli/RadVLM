@@ -57,7 +57,8 @@ try:
             save_steps=100,
             learning_rate=5e-5,
             weight_decay=0.01,
-            fp16=True,  # if using GPU with float16 support
+            fp16=False,  # if using GPU with float16 support
+            bf16=True,  # if using GPU with bfloat16 support
         )
         print("Setting up the Trainer...")
         trainer = Trainer(
