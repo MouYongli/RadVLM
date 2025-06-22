@@ -6,7 +6,7 @@ from deepseek_vl2.utils.io import load_pil_images
 import os
 import torch.nn.functional as F
 
-class RadVLMDataset(Dataset):
+class RadVLMDatasetDeepseek(Dataset):
     def __init__(self, data, processor, tokenizer, max_seq_length=2048):
         self.data = data
         self.processor = processor
