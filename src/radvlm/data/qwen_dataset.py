@@ -10,7 +10,7 @@ import torch.nn.functional as F
 class RadVLMDatasetQwen(Dataset):
     def __init__(self, data, model_name="Qwen/Qwen2.5-VL-7B-Instruct", max_seq_length=2048):
         self.data = data
-        self.processor = AutoProcessor.from_pretrained(model_name)
+        self.processor = AutoProcessor.from_pretrained(model_name, use_fast=True)
         self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             model_name, torch_dtype="auto", device_map="auto"
         )

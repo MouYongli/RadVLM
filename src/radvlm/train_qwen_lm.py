@@ -1,7 +1,5 @@
 from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor, TrainingArguments, Trainer
 import transformers
-print(transformers.__file__)
-print(transformers.__version__)
 
 import os
 # from PIL import Image
@@ -13,14 +11,91 @@ sys.path.append('/home/gustke/Projects/RadVLM')
 
 import os
 import torch.nn.functional as F
+import evaluate
+import numpy as np
+
+import wandb
+wandb.login()
+
+os.environ["WANDB_PROJECT"] = "train_qwen_lm"  # name your W&B project
+os.environ["WANDB_LOG_MODEL"] = "checkpoint"  # log all model checkpoints
 
 from src.radvlm.data import radvlm_dataset_qwen as radvlm_dataset
+
+def compute_metrics(eval_pred):
+    """
+    Optimized compute_metrics function for Trainer
+    eval_pred: EvalPrediction object with predictions and label_ids
+    """
+    print("\nComputing metrics...")
+    predictions, labels = eval_pred
+    
+    # Handle tuple predictions (logits, ...)
+    if isinstance(predictions, tuple):
+        predictions = predictions[0]
+    
+    # Convert logits to token IDs if needed (for generation tasks)
+    if predictions.dtype == np.float32 or predictions.dtype == np.float64:
+        predictions = np.argmax(predictions, axis=-1)
+    
+    # Ensure we have numpy arrays
+    if not isinstance(predictions, np.ndarray):
+        predictions = np.array(predictions)
+    if not isinstance(labels, np.ndarray):
+        labels = np.array(labels)
+    
+    # Replace -100 labels with pad_token_id for proper decoding
+    labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
+    
+    # Ensure integer dtype for token IDs
+    predictions = predictions.astype(np.int32)
+    labels = labels.astype(np.int32)
+    
+    # Decode predictions and labels back to text
+    print("Decoding predictions and labels...")
+    try:
+        decoded_preds = tokenizer.batch_decode(predictions, skip_special_tokens=True)
+        decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
+    except Exception as e:
+        print(f"Decoding error: {e}")
+        # Fallback: decode one by one and handle errors
+        decoded_preds = []
+        decoded_labels = []
+        for pred, label in zip(predictions, labels):
+            try:
+                decoded_preds.append(tokenizer.decode(pred, skip_special_tokens=True))
+                decoded_labels.append(tokenizer.decode(label, skip_special_tokens=True))
+            except Exception as decode_error:
+                print(f"Error decoding individual sequence: {decode_error}")
+                decoded_preds.append("")
+                decoded_labels.append("")
+    
+    # Clean up decoded text (remove extra whitespace)
+    decoded_preds = [pred.strip() for pred in decoded_preds]
+    decoded_labels = [label.strip() for label in decoded_labels]
+    
+    print("Sample Decoded prediction: ", decoded_preds[0][:75] if decoded_preds else "No predictions")
+    # Compute BLEU score
+    bleu_metric = evaluate.load("bleu")
+    bleu_score = bleu_metric.compute(predictions=decoded_preds, references=decoded_labels)
+    print(f"✓ BLEU computed successfully: {bleu_score['bleu']}")
+        
+    # Calculate average prediction length
+    avg_pred_length = sum(len(pred.split()) for pred in decoded_preds) / len(decoded_preds) if decoded_preds else 0
+    
+    return {
+        "bleu": bleu_score["bleu"],
+        "eval_samples": len(decoded_preds),
+        "avg_prediction_length": avg_pred_length
+    }
+
 
 try:
     here = os.path.dirname(os.path.abspath(__file__))
 
     model = radvlm_dataset.model
     processor = radvlm_dataset.processor
+    tokenizer = processor.tokenizer
 
     # === Freeze vision encoder ===
     for name, param in model.named_parameters():
@@ -58,12 +133,13 @@ try:
             learning_rate=5e-5,
             weight_decay=0.01,
             fp16=True,  # if using GPU with float16 support
-
+            label_names=["labels"],  # Ensure labels are included in the loss computation
+            report_to="wandb", # Log to Weights & Biases
         )
 
         # Initialize Trainer or your custom training loop here
         print("Setting up the Trainer...")
-        trainer = Trainer(model=model, args=training_args, train_dataset=radvlm_dataset, eval_dataset=radvlm_dataset, data_collator=data_collator)
+        trainer = Trainer(model=model, args=training_args, train_dataset=radvlm_dataset, eval_dataset=radvlm_dataset, data_collator=data_collator, compute_metrics=compute_metrics)
         print("Starting training...")
         trainer.train()
         print("Training completed.")
