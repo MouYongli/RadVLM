@@ -1,5 +1,6 @@
 from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor, TrainingArguments, Trainer
 import transformers
+from pycocoevalcap.cider.cider import Cider
 
 import os
 # from PIL import Image
@@ -79,14 +80,48 @@ def compute_metrics(eval_pred):
     bleu_metric = evaluate.load("bleu")
     bleu_score = bleu_metric.compute(predictions=decoded_preds, references=decoded_labels)
     print(f"✓ BLEU computed successfully: {bleu_score['bleu']}")
+
+    # Compute METEOR score
+    meteor_metric = evaluate.load("meteor")
+    meteor_score = meteor_metric.compute(predictions=decoded_preds, references=decoded_labels)
+    print(f"✓ METEOR computed successfully: {meteor_score['meteor']}")
+
+    # Compute ROUGE-L score
+    rouge_metric = evaluate.load("rouge")
+    rouge_score = rouge_metric.compute(predictions=decoded_preds, references=decoded_labels)
+    print(f"✓ ROUGE-L computed successfully: {rouge_score['rougeL']}")
+
+    # Prepare data for CIDEr evaluation
+
+    gts = {}
+    res = {}
+    for i, (pred, label) in enumerate(zip(decoded_preds, decoded_labels)):
+        img_id = str(i)
+        gts[img_id] = [label]  # List of reference strings
+        res[img_id] = [pred]   # List with single prediction string
+    
+    cider_scorer = Cider()
+    cider_score, _ = cider_scorer.compute_score(gts, res)
+    print(f"✓ CIDEr computed successfully: {cider_score}")
+        
+
+    # Compute BertScore
+    bert_score_metric = evaluate.load("bertscore")
+    bert_score = bert_score_metric.compute(predictions=decoded_preds, references=decoded_labels, lang="en")
+    bert_score = float(np.mean(bert_score['f1'])) if bert_score['f1'] else 0.0
+    print(f"✓ BERTScore computed successfully: {bert_score}")
         
     # Calculate average prediction length
-    avg_pred_length = sum(len(pred.split()) for pred in decoded_preds) / len(decoded_preds) if decoded_preds else 0
+    # avg_pred_length = sum(len(pred.split()) for pred in decoded_preds) / len(decoded_preds) if decoded_preds else 0
     
     return {
         "bleu": bleu_score["bleu"],
+        "meteor": meteor_score["meteor"],
+        "rougeL": rouge_score["rougeL"],
+        "cider": cider_score,
+        "bertscore": bert_score,
         "eval_samples": len(decoded_preds),
-        "avg_prediction_length": avg_pred_length
+        # "avg_prediction_length": avg_pred_length
     }
 
 
