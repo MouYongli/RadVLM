@@ -1,0 +1,37 @@
+[
+    {
+        "image_paths": ["Projects/RadVLM/data/raw/MIMIC-CXR-JPG/p10/p10000032/s50414267/02aa804e-bde0afdd-112c0b34-7bc16630-4e384014.jpg", "/home/gustke/Projects/RadVLM/data/raw/MIMIC-CXR-JPG/p10/p10000032/s50414267/174413ec-4ec4c1f7-34ea26b7-c5f994f8-79ef1962.jpg"],
+        "report_1": "The chest X-ray shows clear lung fields with no evidence of consolidation or pleural effusion. The heart size is within normal limits.",
+        "report_2": "There is mild blunting of the left costophrenic angle, suggestive of a small pleural effusion. No acute infiltrates are seen.",
+        "radiologist_preference": "report_2",
+        "ground_truth": "Small left pleural effusion noted. No acute pulmonary process."
+    },
+    {
+        "image_paths": ["images/xray_002.jpg"],
+        "report_1": "The lungs are hyperinflated with flattened diaphragms, consistent with chronic obstructive pulmonary disease. No focal consolidation.",
+        "report_2": "Normal chest X-ray. No abnormalities detected.",
+        "radiologist_preference": "report_1",
+        "ground_truth": "Findings consistent with COPD. No acute disease."
+    },
+    {
+        "image_paths": ["images/xray_003.jpg"],
+        "report_1": "There is a right lower lobe opacity, which may represent pneumonia. The cardiac silhouette is normal.",
+        "report_2": "The heart and mediastinum are unremarkable. No evidence of pneumonia.",
+        "radiologist_preference": "report_1",
+        "ground_truth": "Right lower lobe pneumonia."
+    },
+    {
+        "image_paths": ["images/xray_004.jpg"],
+        "report_1": "No evidence of pneumothorax or pleural effusion. The bony thorax is intact.",
+        "report_2": "There is a left-sided pneumothorax with partial lung collapse.",
+        "radiologist_preference": "report_2",
+        "ground_truth": "Left pneumothorax present."
+    },
+    {
+        "image_paths": ["images/xray_005.jpg"],
+        "report_1": "The chest X-ray demonstrates bilateral patchy opacities, most prominent in the lower zones.",
+        "report_2": "Clear lung fields. No abnormal findings.",
+        "radiologist_preference": "report_1",
+        "ground_truth": "Bilateral lower zone opacities, likely infection."
+    }
+]
