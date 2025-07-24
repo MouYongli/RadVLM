@@ -179,4 +179,4 @@ baselines/deepseek/
 baselines/qwen/
 models/deepseek-vl2-finetuned/
 
-data
+/data
