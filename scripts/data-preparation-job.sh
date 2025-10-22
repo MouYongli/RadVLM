@@ -26,12 +26,15 @@ export CONDA_ENV_NAME=deepseekenv
 export CONDA_ROOT=$HOME/miniforge3
 export PATH="$CONDA_ROOT/bin:$PATH"
 
-export PROJECT_ROOT="$HOME/RadVLM"
+export PROJECT_ROOT="$HOME/jupyterlab/RadVLM"
 
+source $HOME/.bashrc
 conda activate $CONDA_ENV_NAME
 echo "Project root is: $PROJECT_ROOT"
 echo "Home is: $HOME"
 echo "HPCWORK is: $HPCWORK"
+echo "Conda env name is: $CONDA_ENV_NAME"
 cd $PROJECT_ROOT/src/radvlm/utils
+echo "Current directory: $(pwd)"
 
 python preprocess_images.py
