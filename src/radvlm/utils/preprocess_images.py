@@ -2,7 +2,7 @@ from PIL import Image
 import os
 import pydicom
 import numpy as np
-
+from src.radvlm.utils.config import DATA_RAW_DIR, DATA_PROCESSED_DIR
 
 def copy_data_to_new_dir(old_data_dir: str, new_data_dir: str):   
     """
@@ -189,8 +189,8 @@ def resize_images(data_dir, max_resolution=2048):
 if __name__ == "__main__":
     
     try:
-        old_data_dir = "/hpcwork/ug301051/MIMIC-CXR"
-        new_data_dir = "/hpcwork/ug301051/MIMIC-CXR/processed"
+        old_data_dir = DATA_RAW_DIR
+        new_data_dir = DATA_PROCESSED_DIR
 
         # check if old_data_dir exists
         if os.path.exists(old_data_dir):

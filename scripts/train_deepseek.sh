@@ -34,5 +34,5 @@ conda activate $CONDA_ENV_NAME
 
 cd $PROJECT_ROOT/src/radvlm
 
-python train_deepseek.py
+python train_deepseek_lm.py
 

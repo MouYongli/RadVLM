@@ -1,0 +1,2 @@
+DATA_RAW_DIR = "/hpcwork/ug301051/MIMIC-CXR"
+DATA_PROCESSED_DIR = "/hpcwork/ug301051/MIMIC-CXR/processed"

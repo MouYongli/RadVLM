@@ -1,4 +1,5 @@
 import os
+from src.radvlm.utils.config import DATA_PROCESSED_DIR
 
 here = os.path.dirname(os.path.abspath(__file__))
 
@@ -13,7 +14,7 @@ def load_dataset() -> list:
 
     try:
         # Load images and texts from the dataset
-        data_dir = os.path.join(here, "..", "..", "..", "data", "raw", "MIMIC-CXR-JPG", "p10")
+        data_dir = DATA_PROCESSED_DIR
         
         if not os.path.exists(data_dir):
             raise FileNotFoundError(f"Dataset directory does not exist: {data_dir}")
@@ -45,9 +46,3 @@ def load_dataset() -> list:
         print(f"Error loading dataset: {e}")
         return []
     
-# if __name__ == "__main__":
-#     dataset = load_dataset()
-#     if dataset:
-#         print(f"Loaded {len(dataset)} items from the dataset.")
-#     else:
-#         print("No items loaded from the dataset.")
