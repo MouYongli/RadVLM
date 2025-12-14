@@ -26,8 +26,6 @@ def load_dataset() -> list:
                     with open(os.path.join(root, file), 'r') as f:
                         # Read radiology report text
                         text_content = f.read().strip()
-                        if not text_content: # If text is empty, skip this datapoint
-                            continue
 
                     # Check if the corresponding image directory exists
                     if not os.path.exists(os.path.join(root, file.replace('.txt', ''))):
@@ -39,6 +37,7 @@ def load_dataset() -> list:
                             raise FileNotFoundError(f"Image directory not found: {image_path}")
                         # Add the text and resized images to the dataset
                         dataset.append({
+                            "file": os.path.join(root, file),
                             "content": text_content,
                             "images": [os.path.join(root, file.replace('.txt', ''), i) for i in os.listdir(image_path) if i.endswith('.jpg')]  
                         })

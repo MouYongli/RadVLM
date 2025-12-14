@@ -9,7 +9,7 @@ from src.radvlm.utils.config import DATA_PROCESSED_DIR
 
 class RadVLMDatasetDeepseek(Dataset):
     def __init__(self, data, processor, tokenizer, max_seq_length=2048, split=None):
-        self.data = data
+        self.data = self._preprocess_reports(data)
         self.processor = processor
         self.tokenizer = tokenizer
         self.max_seq_length = max_seq_length
@@ -47,6 +47,60 @@ class RadVLMDatasetDeepseek(Dataset):
                 filtered_data.append(filtered_data_item)
                         
         print(f"Filtered data to {len(filtered_data)} items for split '{split}'")
+
+        return filtered_data
+
+
+    def _preprocess_reports(self, data):
+
+        # Create logs directory if it doesn't exist
+        logs_dir = os.path.join(DATA_PROCESSED_DIR, "../logs")
+        os.makedirs(logs_dir, exist_ok=True)
+
+        # Log report length statistics
+        report_lengths = [(item["file"],len(item["content"].strip().split())) for item in data]
+        if report_lengths:
+            lengths = [length for _, length in report_lengths]
+            print(f"Report length statistics: min={min(lengths)}, max={max(lengths)}, avg={sum(lengths)/len(lengths):.2f}")
+            
+            with open(os.path.join(logs_dir, "report_length_stats.txt"), 'w') as f:
+                f.write(f"Report length statistics:\n")
+                f.write(f"Min: {min(lengths)}\n")
+                f.write(f"Max: {max(lengths)}\n")
+                f.write(f"Avg: {sum(lengths)/len(lengths):.2f}\n")
+                f.write(f"Total reports: {len(lengths)}\n")
+            with open(os.path.join(logs_dir, "report_lengths.csv"), 'w') as f:
+                f.write("file,report_length\n")
+                for file, length in report_lengths:
+                    f.write(f"{file},{length}\n")
+        else:
+            print("No valid reports found for length statistics.")
+
+        # Remove entries with empty reports
+        filtered_data = [item for item in data if item["content"].strip() != ""]
+        print(f"Removed empty reports. {len(filtered_data)} items remain. {len(data) - len(filtered_data)} items were removed.")
+        with open(os.path.join(logs_dir, "empty_report_removal.txt"), 'w') as f:
+            f.write(f"Total items before removal: {len(data)}\n")
+            f.write(f"Total items after removal: {len(filtered_data)}\n")
+            f.write(f"Total empty reports removed: {len(data) - len(filtered_data)}\n")
+
+        # Save short report examples to a file for inspection
+        short_report_file = os.path.join(logs_dir, "short_reports.txt")
+        with open(short_report_file, 'w') as f:
+            for item in data:
+                if item["content"].strip() == "":
+                    continue
+                if len(item["content"].strip().split()) < 20:
+                    f.write(f"Report: {item['content'].strip()}\nImages: {item['images']}\n\n")
+
+        # Save long report examples to a file for inspection
+        long_report_file = os.path.join(logs_dir, "long_reports.txt")
+        with open(long_report_file, 'w') as f:
+            for item in data:
+                if item["content"].strip() == "":
+                    continue
+                if len(item["content"].strip().split()) > 800:
+                    f.write(f"Report: {item['content'].strip()}\nImages: {item['images']}\n\n")
 
         return filtered_data
 

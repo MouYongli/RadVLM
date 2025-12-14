@@ -5,7 +5,7 @@
 
 ### Output path for stdout and stderr
 ### %J is the job ID, %I is the array ID
-#SBATCH --output=output_%J.txt
+#SBATCH --output=output_data_preprocessing_%J.txt
 
 ### Request the time you need for execution. The full format is D-HH:MM:SS
 ### You must at least specify minutes OR days and hours and may add or
@@ -27,6 +27,7 @@ export CONDA_ROOT=$HOME/miniforge3
 export PATH="$CONDA_ROOT/bin:$PATH"
 
 export PROJECT_ROOT="$HOME/jupyterlab/RadVLM"
+export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"  # Add the project root to PYTHONPATH
 
 source $HOME/.bashrc
 conda activate $CONDA_ENV_NAME
@@ -34,7 +35,7 @@ echo "Project root is: $PROJECT_ROOT"
 echo "Home is: $HOME"
 echo "HPCWORK is: $HPCWORK"
 echo "Conda env name is: $CONDA_ENV_NAME"
-cd $PROJECT_ROOT/src/radvlm/utils
-echo "Current directory: $(pwd)"
+# cd $PROJECT_ROOT/src/radvlm/utils
+# echo "Current directory: $(pwd)"
 
-python preprocess_images.py
+python $PROJECT_ROOT/src/radvlm/utils/preprocess_images.py
