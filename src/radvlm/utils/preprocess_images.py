@@ -198,7 +198,7 @@ if __name__ == "__main__":
             copy_data_to_new_dir(old_data_dir, new_data_dir)
             delete_index_files(new_data_dir)
             transform_dcm_to_jpg(new_data_dir)
-            resize_images(new_data_dir, max_resolution=2048)
+            # resize_images(new_data_dir, max_resolution=2048)
         else:
             print(f"Old data directory {old_data_dir} does not exist")
     except Exception as e:

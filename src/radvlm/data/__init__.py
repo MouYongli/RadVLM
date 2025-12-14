@@ -22,7 +22,7 @@ try:
         from .deepseek_dataset import RadVLMDatasetDeepseek
         from deepseek_vl2.models import DeepseekVLV2Processor, DeepseekVLV2ForCausalLM
 
-        model_path = "deepseek-ai/deepseek-vl2-tiny"
+        model_path = "deepseek-ai/deepseek-vl2-small"
         vl_chat_processor: DeepseekVLV2Processor = DeepseekVLV2Processor.from_pretrained(model_path)
         tokenizer = vl_chat_processor.tokenizer
         radvlm_dataset_deepseek = RadVLMDatasetDeepseek(raw_data, vl_chat_processor, tokenizer, max_seq_length=2048)

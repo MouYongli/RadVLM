@@ -15,6 +15,7 @@ def load_dataset() -> list:
     try:
         # Load images and texts from the dataset
         data_dir = DATA_PROCESSED_DIR
+        print(f"Loading dataset from: {data_dir}")
         
         if not os.path.exists(data_dir):
             raise FileNotFoundError(f"Dataset directory does not exist: {data_dir}")
@@ -23,14 +24,15 @@ def load_dataset() -> list:
             for file in files:
                 if file.endswith('.txt'):
                     with open(os.path.join(root, file), 'r') as f:
+                        # Read radiology report text
                         text_content = f.read().strip()
-                        if not text_content:
+                        if not text_content: # If text is empty, skip this datapoint
                             continue
 
                     # Check if the corresponding image directory exists
                     if not os.path.exists(os.path.join(root, file.replace('.txt', ''))):
                         print(f"Image directory for {file} does not exist.")
-                        continue
+                        continue # If no images exist for this report, skip this datapoint
                     else:
                         image_path = os.path.abspath(os.path.join(root, file.replace('.txt', ''))).replace("raw", "processed/2048")
                         if not os.path.exists(image_path):
