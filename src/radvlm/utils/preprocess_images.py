@@ -15,7 +15,7 @@ def copy_data_to_new_dir(old_data_dir: str, new_data_dir: str):
         None
     """
     try:
-        print("Copying data to new directory")
+        print(f"Copying data from {old_data_dir} to {new_data_dir}")
         if not os.path.exists(old_data_dir):
             print("Old dataset directory does not exist.")
             raise FileNotFoundError("Old dataset directory does not exist.")
@@ -90,6 +90,12 @@ def transform_dcm_to_jpg(data_dir: str) -> str:
 
                     # Normalize to 8-bit
                     pixel_array = ((pixel_array - lower) / (upper - lower + 1e-8) * 255).astype(np.uint8)
+
+                    # Handle PhotometricInterpretation (invert if MONOCHROME1)
+                    photometric = getattr(dcm_image, 'PhotometricInterpretation', 'MONOCHROME2')
+                    if photometric == 'MONOCHROME1':
+                        pixel_array = 255 - pixel_array
+
                     image = Image.fromarray(pixel_array, mode='L')
                     image.save(jpeg_path, 'JPEG')
 
