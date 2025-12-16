@@ -36,6 +36,6 @@ echo "Home is: $HOME"
 echo "HPCWORK is: $HPCWORK"
 echo "Conda env name is: $CONDA_ENV_NAME"
 # cd $PROJECT_ROOT/src/radvlm/utils
-# echo "Current directory: $(pwd)"
-# python $PROJECT_ROOT/src/radvlm/utils/copy_mimic_subset_to_hpcwork.py
-python $PROJECT_ROOT/src/radvlm/utils/preprocess_images.py
+# Read directory names config.py
+
+python $PROJECT_ROOT/src/radvlm/utils/copy_mimic_subset_to_hpcwork.py

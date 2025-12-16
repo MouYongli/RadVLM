@@ -2,6 +2,7 @@ from PIL import Image
 import os
 import pydicom
 import numpy as np
+import subprocess
 from src.radvlm.utils.config import DATA_RAW_DIR, DATA_PROCESSED_DIR
 
 def copy_data_to_new_dir(old_data_dir: str, new_data_dir: str):   
@@ -14,21 +15,27 @@ def copy_data_to_new_dir(old_data_dir: str, new_data_dir: str):
     Returns:
         None
     """
-    try:
-        print(f"Copying data from {old_data_dir} to {new_data_dir}")
+    try:        
         if not os.path.exists(old_data_dir):
-            print("Old dataset directory does not exist.")
-            raise FileNotFoundError("Old dataset directory does not exist.")
+            raise FileNotFoundError(f"Source directory does not exist: {old_data_dir}")
         
-        for root, dirs, files in os.walk(old_data_dir):
-            for file in files:
-                old_file_path = os.path.join(root, file)
-                relative_path = os.path.relpath(old_file_path, old_data_dir)
-                new_file_path = os.path.join(new_data_dir, relative_path)
-                os.makedirs(os.path.dirname(new_file_path), exist_ok=True)
-                with open(old_file_path, 'rb') as src_file:
-                    with open(new_file_path, 'wb') as dst_file:
-                        dst_file.write(src_file.read())
+        if not os.path.exists(new_data_dir):
+            os.makedirs(new_data_dir, exist_ok=True)
+        
+        print(f"Copying from {old_data_dir} → {new_data_dir}", flush=True)
+
+        subprocess.run(
+            [
+                "rsync",
+                "-a",
+                "--ignore-existing",
+                "--info=progress2",
+                f"{old_data_dir}/",
+                f"{new_data_dir}/",
+            ],
+            check=True,
+        )
+
         print("Data copying completed.")
         return
     except Exception as e:

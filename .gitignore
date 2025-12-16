@@ -180,3 +180,6 @@ baselines/qwen/
 models/deepseek-vl2-finetuned/
 
 /data
+
+# Slurm output files
+output_*.txt
