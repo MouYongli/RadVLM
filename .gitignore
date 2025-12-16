@@ -183,3 +183,6 @@ models/deepseek-vl2-finetuned/
 
 # Slurm output files
 output_*.txt
+
+# Config file
+**/config.py
