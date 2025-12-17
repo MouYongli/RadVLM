@@ -185,4 +185,4 @@ models/deepseek-vl2-finetuned/
 output_*.txt
 
 # Config file
-**/config.py
+src/radvlm/utils/config.py
