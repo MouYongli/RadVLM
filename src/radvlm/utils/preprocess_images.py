@@ -3,7 +3,33 @@ import os
 import pydicom
 import numpy as np
 import subprocess
+from pathlib import Path
+from multiprocessing import Pool
 from src.radvlm.utils.config import DATA_RAW_DIR, DATA_PROCESSED_DIR
+
+
+def copy_subdir(args):
+    """Copy a single subdirectory."""
+    subdir, new_base = args
+    # Extract the relative path structure (e.g., "p10/p10000032")
+    parent_name = os.path.basename(os.path.dirname(subdir))
+    subdir_name = os.path.basename(subdir)
+    
+    # Create parent directory in destination if needed
+    dest_parent = os.path.join(new_base, parent_name)
+    os.makedirs(dest_parent, exist_ok=True)
+    
+    dest = os.path.join(dest_parent, subdir_name)
+    
+    try:
+        subprocess.run(
+            ["rsync", "-ah", "--ignore-existing", f"{subdir}/", f"{dest}/"],
+            check=True,
+            capture_output=True
+        )
+        return f"✓ {parent_name}/{subdir_name}"
+    except subprocess.CalledProcessError as e:
+        return f"✗ {parent_name}/{subdir_name}: {e}"
 
 def copy_data_to_new_dir(old_data_dir: str, new_data_dir: str):   
     """
@@ -23,20 +49,40 @@ def copy_data_to_new_dir(old_data_dir: str, new_data_dir: str):
             os.makedirs(new_data_dir, exist_ok=True)
         
         print(f"Copying from {old_data_dir} → {new_data_dir}", flush=True)
-
-        subprocess.run(
-            [
-                "rsync",
-                "-a",
-                "--ignore-existing",
-                "--info=progress2",
-                f"{old_data_dir}/",
-                f"{new_data_dir}/",
-            ],
-            check=True,
-        )
-
-        print("Data copying completed.")
+        
+        # Get all nested subdirectories
+        subdirs = []
+        for top_level_dir in Path(old_data_dir).iterdir():
+            if top_level_dir.is_dir():
+                nested_dirs = [str(d) for d in top_level_dir.iterdir() if d.is_dir()]
+                subdirs.extend(nested_dirs)
+        
+        if not subdirs:
+            print("No subdirectories found!")
+            return
+        
+        total = len(subdirs)
+        print(f"Found {total} patient directories. Copying with 2 parallel workers in batches...", flush=True)
+        
+        # Process in chunks to limit memory usage
+        chunk_size = 50  # Process 50 directories at a time
+        completed = 0
+        
+        for i in range(0, len(subdirs), chunk_size):
+            chunk = subdirs[i:i+chunk_size]
+            args = [(subdir, new_data_dir) for subdir in chunk]
+            
+            print(f"\nProcessing batch {i//chunk_size + 1} ({completed}/{total} completed)...", flush=True)
+            
+            with Pool(processes=2) as pool:
+                for result in pool.imap_unordered(copy_subdir, args):
+                    print(result, flush=True)
+                    completed += 1
+            
+            # Pool is closed and joined here, freeing memory
+            print(f"Batch complete. Progress: {completed}/{total}", flush=True)
+        
+        print("\nData copying completed.")
         return
     except Exception as e:
         print(f"Error copying data: {e}")
