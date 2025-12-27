@@ -1,9 +1,12 @@
 transformers==4.38.2
 xformers>=0.0.21
 timm>=0.9.16
-accelerate
+accelerate==0.27.0
 sentencepiece
 attrdict
 einops
+pandas
 deepspeed
 mpi4py
+peft==0.8.2
+wandb

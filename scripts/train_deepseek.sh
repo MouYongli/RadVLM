@@ -1,5 +1,6 @@
 #!/usr/bin/zsh
 
+
 ### Job name
 #SBATCH --job-name=DS-VL2-Train
 
@@ -14,7 +15,7 @@
 
 ### Request a host with a GPU
 ### If you need two GPUs, change the number accordingly
-#SBATCH --gres=gpu:2
+#SBATCH --gres=gpu:1
 
 ### if needed: switch to your working directory (where you saved your program)
 # if you installed Miniforge to a different location, change the path accordingly
@@ -24,7 +25,7 @@ module load GCCcore/.9.3.0
 module load Python/3.9.6
 module load cuDNN/8.1.1.33-CUDA-11.2.1
 
-export CONDA_ENV_NAME=deepseekenv
+export CONDA_ENV_NAME=deepseekenv2
 export CONDA_ROOT=$HOME/miniforge3
 export PATH="$CONDA_ROOT/bin:$PATH"
 

@@ -61,6 +61,8 @@ rm -rf DeepSeek-VL2
 cp requirements.deepseek.txt deepseek/requirements.txt
 #  Update pyproject.toml in DeepSeek-VL2 folder
 cp pyproject.deepseek.toml deepseek/pyproject.toml
+# Update modeling_deepseek_vl2_v2.py in DeepSeek-VL2 folder
+cp modeling_deepseek_vl2_v2.deepseek.py deepseek/deepseek_vl2/models/modeling_deepseek_vl2_v2.py
 # Install dependencies and install the deepseek-vl2 package
 cd deepseek
 # Create a new conda environment for DeepSeek-VL2

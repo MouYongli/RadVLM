@@ -8,7 +8,7 @@ sys.path.append('/home/gustke/Projects/RadVLM')
 here = os.path.dirname(os.path.abspath(__file__))
 
 import torch.nn.functional as F
-from accelerate import Accelerator
+# from accelerate import Accelerator
 
 
 # from deepseek_vl2.models import DeepseekVLV2Processor, DeepseekVLV2ForCausalLM
@@ -34,7 +34,13 @@ def setup_model_with_lora(model_path: str):
     #     device_map="auto"
     # )
 
-    model: DeepseekVLV2ForCausalLM = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True)
+    model: DeepseekVLV2ForCausalLM = AutoModelForCausalLM.from_pretrained(
+        model_path,
+        trust_remote_code=True,
+        torch_dtype=torch.bfloat16,
+        # device_map="auto",
+        low_cpu_mem_usage=True
+    )
     
     # Freeze vision encoder (we only want to adapt the language model)
     for name, param in model.named_parameters():
@@ -85,12 +91,12 @@ def train_deepseek_vl2():
     )
 
     # Initialize Accelerator
-    accelerator = Accelerator(
-        gradient_accumulation_steps=4,
-        mixed_precision='bf16',
-        log_with="wandb",
-        project_dir="./logs"
-    )
+    # accelerator = Accelerator(
+    #     gradient_accumulation_steps=4,
+    #     mixed_precision='bf16',
+    #     log_with="wandb",
+    #     project_dir="./logs"
+    # )
     
     # Model setup
     model_path = "deepseek-ai/deepseek-vl2-small" 
@@ -127,7 +133,7 @@ def train_deepseek_vl2():
         gradient_checkpointing=False, # Deepseek-VL2 does not support gradient checkpointing
         learning_rate=2e-4,
         weight_decay=0.01,
-        warmup_steps=100,
+        warmup_steps=2,
         logging_steps=10,
         save_steps=500,
         eval_steps=500,
@@ -139,8 +145,8 @@ def train_deepseek_vl2():
         report_to="wandb",  # Options: "wandb", "tensorboard", "none"
         run_name="deepseek-vl2-mimic-cxr",  # Name for wandb run
         remove_unused_columns=False,
-        # DeepSpeed config
-        deepspeed=os.path.join(here, "ds_config.json"),  # See below for config
+        # DeepSpeed config (disabled for single GPU)
+        # deepspeed=os.path.join(here, "ds_config.json"),
     )
     
     # Initialize Trainer
