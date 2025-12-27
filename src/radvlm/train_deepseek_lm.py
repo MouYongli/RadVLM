@@ -1,19 +1,23 @@
 import torch
 from transformers import AutoModelForCausalLM, default_data_collator, TrainingArguments, Trainer
 from peft import LoraConfig, get_peft_model, TaskType
-
+import os
 import sys
 sys.path.append('/home/gustke/Projects/RadVLM')
 
-import os
+here = os.path.dirname(os.path.abspath(__file__))
+
 import torch.nn.functional as F
 from accelerate import Accelerator
 
 
 # from deepseek_vl2.models import DeepseekVLV2Processor, DeepseekVLV2ForCausalLM
 
-from src.radvlm.data import radvlm_dataset_deepseek as radvlm_dataset
+# from src.radvlm.data import radvlm_dataset_deepseek as radvlm_dataset
+from src.radvlm.data.build_dataset import load_dataset
+from src.radvlm.data.deepseek_dataset import RadVLMDatasetDeepseek
 
+from deepseek_vl2.models import DeepseekVLV2Processor, DeepseekVLV2ForCausalLM
 
 def setup_model_with_lora(model_path: str):
     """
@@ -23,12 +27,14 @@ def setup_model_with_lora(model_path: str):
         model_path: HuggingFace model ID or local path
     """
     
-    model = AutoModelForCausalLM.from_pretrained(
-        model_path,
-        trust_remote_code=True,
-        torch_dtype=torch.bfloat16,
-        device_map="auto"
-    )
+    # model = AutoModelForCausalLM.from_pretrained(
+    #     model_path,
+    #     trust_remote_code=True,
+    #     torch_dtype=torch.bfloat16,
+    #     device_map="auto"
+    # )
+
+    model: DeepseekVLV2ForCausalLM = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True)
     
     # Freeze vision encoder (we only want to adapt the language model)
     for name, param in model.named_parameters():
@@ -60,6 +66,104 @@ def setup_model_with_lora(model_path: str):
     model.print_trainable_parameters()
     
     return model
+
+
+def train_deepseek_vl2():
+    """Main training function with DeepSpeed and Accelerate"""
+    
+    import wandb
+    wandb.init(
+        project="deepseek-vl2-mimic-cxr",
+        name="lora-r16-lr2e-4-3epochs",
+        config={
+            "model": "deepseek-vl2-small",
+            "dataset": "mimic-cxr",
+            "lora_r": 16,
+            "learning_rate": 2e-4,
+            "epochs": 3
+        }
+    )
+
+    # Initialize Accelerator
+    accelerator = Accelerator(
+        gradient_accumulation_steps=4,
+        mixed_precision='bf16',
+        log_with="wandb",
+        project_dir="./logs"
+    )
+    
+    # Model setup
+    model_path = "deepseek-ai/deepseek-vl2-small" 
+    model = setup_model_with_lora(model_path)
+    
+    # Load processor and tokenizer
+    from transformers import AutoProcessor
+    # processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
+    # tokenizer = processor.tokenizer
+    processor: DeepseekVLV2Processor = DeepseekVLV2Processor.from_pretrained(model_path)
+    tokenizer = processor.tokenizer
+    
+    # Prepare datasets
+    raw_data = load_dataset()
+    
+    train_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='train')
+    
+    val_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='validation')
+    
+    # Data collator
+    from transformers import DataCollatorForLanguageModeling
+    data_collator = DataCollatorForLanguageModeling(
+        tokenizer=tokenizer,
+        mlm=False  # Causal LM
+    )
+    
+    # Training arguments
+    training_args = TrainingArguments(
+        output_dir="./deepseek-vl2-mimic-cxr",
+        num_train_epochs=3,
+        per_device_train_batch_size=2,
+        per_device_eval_batch_size=2,
+        gradient_accumulation_steps=8,
+        gradient_checkpointing=False, # Deepseek-VL2 does not support gradient checkpointing
+        learning_rate=2e-4,
+        weight_decay=0.01,
+        warmup_steps=100,
+        logging_steps=10,
+        save_steps=500,
+        eval_steps=500,
+        save_total_limit=3,
+        fp16=False,
+        bf16=True,
+        optim="adamw_torch",
+        lr_scheduler_type="cosine",
+        report_to="wandb",  # Options: "wandb", "tensorboard", "none"
+        run_name="deepseek-vl2-mimic-cxr",  # Name for wandb run
+        remove_unused_columns=False,
+        # DeepSpeed config
+        deepspeed=os.path.join(here, "ds_config.json"),  # See below for config
+    )
+    
+    # Initialize Trainer
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset,
+        eval_dataset=val_dataset,
+        data_collator=data_collator,
+    )
+    
+    # Start training
+    print("Starting training...")
+    trainer.train()
+    
+    # Save final model
+    trainer.save_model("./deepseek-vl2-mimic-cxr-final")
+    
+    print("Training complete!")
+
+
+if __name__ == "__main__":
+    train_deepseek_vl2()
 
 # try:
 #     here = os.path.dirname(os.path.abspath(__file__))

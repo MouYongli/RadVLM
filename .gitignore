@@ -180,3 +180,4 @@ baselines/qwen/
 models/deepseek-vl2-finetuned/
 
 /data
+/wandb

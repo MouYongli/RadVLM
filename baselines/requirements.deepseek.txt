@@ -5,3 +5,5 @@ accelerate
 sentencepiece
 attrdict
 einops
+deepspeed
+mpi4py
