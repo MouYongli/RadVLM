@@ -180,9 +180,14 @@ baselines/qwen/
 models/deepseek-vl2-finetuned/
 
 /data
+*/wandb
 
 # Slurm output files
 output_*.txt
 
 # Config file
 src/radvlm/utils/config.py
+
+# Trained models
+*/deepseek-vl2-mimic-cxr-final
+*/deepseek-vl2-mimic-cxr

@@ -1,0 +1,51 @@
+Report: FINAL REPORT
+ CHEST RADIOGRAPHS
+ 
+ INDICATION:  Questionable pneumothorax.
+ 
+ COMPARISON:  ___.
+ 
+ Normal chest radiograph, no evidence of pneumothorax.
+Images: ['/hpcwork/ug301051/MIMIC-CXR/processed/p10/p10002013/s55608920/a9e7e982-731d9238-7fedf108-9bdd8ac3-b32f0606.jpg', '/hpcwork/ug301051/MIMIC-CXR/processed/p10/p10002013/s55608920/940de880-0e87eceb-571361e8-e19b8de7-1a8e714f.jpg']
+
+Report: FINAL REPORT
+ HISTORY:  Potential renal donor.
+ 
+ FINDINGS:  No previous images.  No acute pneumonia, vascular congestion, or
+ pleural effusion.
+Images: ['/hpcwork/ug301051/MIMIC-CXR/processed/p10/p10625669/s58418731/1e8297a4-cdb2dd9f-7d99ce22-0c7fea82-8b5da3c9.jpg', '/hpcwork/ug301051/MIMIC-CXR/processed/p10/p10625669/s58418731/226e388e-dd890f66-93398dff-be0c647c-9535e2da.jpg']
+
+Report: FINAL REPORT
+ HISTORY:  Chest tube.
+ 
+ COMPARISON:  ___.
+ 
+ FINDINGS:
+ 
+ Compared to the prior study there is no significant interval change.
+Images: ['/hpcwork/ug301051/MIMIC-CXR/processed/p10/p10872575/s57504241/20b7260b-745554be-40135c90-c21972a5-8b112e86.jpg']
+
+Report: FINAL REPORT
+ HISTORY:  Trauma.
+ 
+ FINDINGS:  Single frontal view shows no evidence of acute cardiopulmonary
+ disease or pneumothorax.
+Images: ['/hpcwork/ug301051/MIMIC-CXR/processed/p10/p10195979/s50921596/6b2ca987-81502baa-d9b650f8-276e9fa8-5edd059b.jpg']
+
+Report: FINAL REPORT
+ CHEST
+ 
+ HISTORY:  Pancreatitis.
+ 
+ REFERENCE EXAM:  ___.
+ 
+ Compared to the prior exam, there is no significant interval change.
+Images: ['/hpcwork/ug301051/MIMIC-CXR/processed/p10/p10222191/s58241890/e483f068-9e51deea-f59ae4eb-cafe36c3-2eaf1c64.jpg']
+
+Report: FINAL REPORT
+ HISTORY:  Post-traumatic fever.
+ 
+ FINDINGS:  No previous images.  No evidence of pneumonia, vascular congestion,
+ or pleural effusion.
+Images: ['/hpcwork/ug301051/MIMIC-CXR/processed/p10/p10888261/s55254728/8024c1bd-344f4fc7-a0458826-cd90ba86-c8ad4d0d.jpg', '/hpcwork/ug301051/MIMIC-CXR/processed/p10/p10888261/s55254728/c1564eec-7e29e5fa-959cbda9-9216a5ed-8e24c6d6.jpg']
+
