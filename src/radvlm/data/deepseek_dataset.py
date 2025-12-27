@@ -31,7 +31,7 @@ class RadVLMDatasetDeepseek(Dataset):
         # Read "mimic-cxr-split.csv" to filter data by split
         split_file = os.path.join(DATA_PROCESSED_DIR, "mimic-cxr-2.0.0-split.csv")
         if not os.path.exists(split_file):
-            print(f"Split file not found: {split_file}. Returning unfiltered data.")
+            print(f"Split file not found: {split_file}. Returning unfiltered data.", flush=True)
             return data
         import pandas as pd
         df_split = pd.read_csv(split_file)
@@ -48,7 +48,7 @@ class RadVLMDatasetDeepseek(Dataset):
             # For each image, check if it belongs to the desired split. If yes, add it to the filtered images.
             for image in images:
                 if not os.path.exists(image):
-                    print(f"Image file does not exist: {image}")
+                    print(f"Image file does not exist: {image}", flush=True)
                     continue
                 image_filename = os.path.basename(image).replace('.jpg', '')
                 split_row = df_split[df_split['dicom_id'] == image_filename]
@@ -56,12 +56,14 @@ class RadVLMDatasetDeepseek(Dataset):
                     item_split = split_row['split'].values[0]
                     if item_split == split:
                         filtered_data_item["images"].append(image)
+                else:
+                    print(f"No split information found for image: {image_filename}", flush=True)
             if filtered_data_item["images"]:
                 filtered_data.append(filtered_data_item)
                 if len(images) != len(filtered_data_item["images"]):
-                    print(f"Item {item.get('file', 'unknown')} - kept {len(filtered_data_item['images'])} out of {len(images)} images for split '{split}'")
+                    print(f"Item {item.get('file', 'unknown')} - kept {len(filtered_data_item['images'])} out of {len(images)} images for split '{split}'", flush=True)
                         
-        print(f"Filtered data to {len(filtered_data)} items for split '{split}'")
+        print(f"Filtered data to {len(filtered_data)} items for split '{split}'", flush=True)
 
         return filtered_data
 
@@ -69,11 +71,13 @@ class RadVLMDatasetDeepseek(Dataset):
     def _preprocess_reports(self, data, create_stats=False):
 
         if create_stats:
+            print("Creating dataset statistics...", flush=True)
             # Create logs directory if it doesn't exist
             logs_dir = os.path.join(DATA_PROCESSED_DIR, "../logs")
             os.makedirs(logs_dir, exist_ok=True)
 
             for split, data_split in [("full", data), ("train", self._filter_data_by_split(data, "train", keep_file_names=True)), ("validate", self._filter_data_by_split(data, "validate", keep_file_names=True)), ("test", self._filter_data_by_split(data, "test", keep_file_names=True))]:
+                print(f"Creating statistics for split: {split} with {len(data_split)} items", flush=True)
                 with open(os.path.join(logs_dir, f"{split}_dataset_size.txt"), 'w') as f:
                     f.write(f"Dataset size for {split} split: {len(data_split)} items\n")
 
@@ -94,7 +98,7 @@ class RadVLMDatasetDeepseek(Dataset):
                             for file, length in report_lengths:
                                 f.write(f"{file},{length}\n")
                     else:
-                        print(f"No valid reports found for length statistics in split '{split}'.")
+                        print(f"No valid reports found for length statistics in split '{split}'.", flush=True)
                         with open(os.path.join(logs_dir, f"report_length_stats_{split}.txt"), 'w') as f:
                             f.write(f"No valid reports found for length statistics in split '{split}'.\n")
                         with open(os.path.join(logs_dir, f"report_lengths_{split}.csv"), 'w') as f:
@@ -102,7 +106,7 @@ class RadVLMDatasetDeepseek(Dataset):
 
                     # Remove entries with empty reports
                     filtered_data = [item for item in data_split if item["content"].strip() != ""]
-                    print(f"Removed empty reports. {len(filtered_data)} items remain. {len(data_split) - len(filtered_data)} items were removed.")
+                    print(f"Removed empty reports. {len(filtered_data)} items remain. {len(data_split) - len(filtered_data)} items were removed.", flush=True)
 
                     with open(os.path.join(logs_dir, f"empty_report_removal_{split}.txt"), 'w') as f:
                         f.write(f"Total items before removal: {len(data_split)}\n")
@@ -123,7 +127,7 @@ class RadVLMDatasetDeepseek(Dataset):
                             if len(item["content"].strip().split()) > 800:
                                 f.write(f"Report: {item['content'].strip()}\nImages: {item['images']}\n\n")
                 else:
-                    print(f"No data available for split '{split}' to create statistics.")
+                    print(f"No data available for split '{split}' to create statistics.", flush=True)
                     with open(os.path.join(logs_dir, f"{split}_dataset_size.txt"), 'w') as f:
                         f.write(f"No data available for split '{split}'.\n")
                     with open(os.path.join(logs_dir, f"report_length_stats_{split}.txt"), 'w') as f:
@@ -139,7 +143,7 @@ class RadVLMDatasetDeepseek(Dataset):
 
         else:
             filtered_data = [item for item in data if item["content"].strip() != ""]
-            print(f"Removed empty reports. {len(filtered_data)} items remain. {len(data) - len(filtered_data)} items were removed.")
+            print(f"Removed empty reports. {len(filtered_data)} items remain. {len(data) - len(filtered_data)} items were removed.", flush=True)
 
         return filtered_data
 

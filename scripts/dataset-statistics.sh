@@ -10,7 +10,7 @@
 ### Request the time you need for execution. The full format is D-HH:MM:SS
 ### You must at least specify minutes OR days and hours and may add or
 ### leave out any other parameters
-#SBATCH --time=00:30:00
+#SBATCH --time=01:00:00
 
 ### Request a host with a GPU
 ### If you need two GPUs, change the number accordingly
