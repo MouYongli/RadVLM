@@ -1,7 +1,7 @@
 #!/usr/bin/zsh
 
 ### MPI tasks
-#SBATCH --ntasks=8              # Ask for 8 MPI tasks
+#SBATCH --ntasks=8
 
 ### Job name
 #SBATCH --job-name=Data-Preparation
@@ -13,7 +13,7 @@
 ### Request the time you need for execution. The full format is D-HH:MM:SS
 ### You must at least specify minutes OR days and hours and may add or
 ### leave out any other parameters
-#SBATCH --time=05:00:00
+#SBATCH --time=02:00:00
 
 ### Request a host with a GPU
 ### If you need two GPUs, change the number accordingly
@@ -39,6 +39,6 @@ echo "Home is: $HOME"
 echo "HPCWORK is: $HPCWORK"
 echo "Conda env name is: $CONDA_ENV_NAME"
 # cd $PROJECT_ROOT/src/radvlm/utils
-# echo "Current directory: $(pwd)"
-# python $PROJECT_ROOT/src/radvlm/utils/copy_mimic_subset_to_hpcwork.py
-python $PROJECT_ROOT/src/radvlm/utils/preprocess_images.py
+# Read directory names config.py
+
+python $PROJECT_ROOT/src/radvlm/utils/copy_mimic_subset_to_hpcwork.py

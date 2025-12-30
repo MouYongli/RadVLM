@@ -1,19 +1,16 @@
 #!/usr/bin/zsh
 
-### MPI tasks
-#SBATCH --ntasks=8              # Ask for 8 MPI tasks
-
 ### Job name
-#SBATCH --job-name=Data-Preparation
+#SBATCH --job-name=Dataset-Statistics
 
 ### Output path for stdout and stderr
 ### %J is the job ID, %I is the array ID
-#SBATCH --output=output_data_preprocessing_%J.txt
+#SBATCH --output=output_dataset_statistics_%J.txt
 
 ### Request the time you need for execution. The full format is D-HH:MM:SS
 ### You must at least specify minutes OR days and hours and may add or
 ### leave out any other parameters
-#SBATCH --time=05:00:00
+#SBATCH --time=01:00:00
 
 ### Request a host with a GPU
 ### If you need two GPUs, change the number accordingly
@@ -34,11 +31,5 @@ export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"  # Add the project root to PYTHONP
 
 source $HOME/.bashrc
 conda activate $CONDA_ENV_NAME
-echo "Project root is: $PROJECT_ROOT"
-echo "Home is: $HOME"
-echo "HPCWORK is: $HPCWORK"
-echo "Conda env name is: $CONDA_ENV_NAME"
-# cd $PROJECT_ROOT/src/radvlm/utils
-# echo "Current directory: $(pwd)"
-# python $PROJECT_ROOT/src/radvlm/utils/copy_mimic_subset_to_hpcwork.py
-python $PROJECT_ROOT/src/radvlm/utils/preprocess_images.py
+
+python $PROJECT_ROOT/src/radvlm/utils/create_dataset_statistics.py
