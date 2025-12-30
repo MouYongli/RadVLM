@@ -34,19 +34,25 @@ def setup_model_with_lora(model_path: str):
     #     device_map="auto"
     # )
 
+    print("Setting up model with LoRA...", flush=True)
+
     model: DeepseekVLV2ForCausalLM = AutoModelForCausalLM.from_pretrained(
         model_path,
         trust_remote_code=True,
         torch_dtype=torch.bfloat16,
-        # device_map="auto",
+        device_map="auto",
         low_cpu_mem_usage=True
     )
+
+    print("Model loaded.", flush=True)
     
     # Freeze vision encoder (we only want to adapt the language model)
     for name, param in model.named_parameters():
         if "vision_tower" in name or "visual" in name or "vision_model" in name:
             param.requires_grad = False
-            print(f"Frozen: {name}")
+            # print(f"Frozen: {name}")
+    
+    print("Vision encoder frozen.", flush=True)
     
     # Configure LoRA
     lora_config = LoraConfig(
@@ -66,11 +72,15 @@ def setup_model_with_lora(model_path: str):
         ],  # Apply LoRA to attention and MLP layers
         inference_mode=False,
     )
+
+    print("Applying LoRA...", flush=True)
     
     # Apply LoRA
     model = get_peft_model(model, lora_config)
     model.print_trainable_parameters()
     
+    print("LoRA applied.", flush=True)
+    print("Model setup with LoRA complete.", flush=True)
     return model
 
 
@@ -109,13 +119,16 @@ def train_deepseek_vl2():
     processor: DeepseekVLV2Processor = DeepseekVLV2Processor.from_pretrained(model_path)
     tokenizer = processor.tokenizer
     
+    print("Processor and tokenizer loaded.", flush=True)
+    print("Preparing datasets...", flush=True)
     # Prepare datasets
     raw_data = load_dataset()
     
     train_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='train')
     
-    val_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='validation')
+    val_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='validate')
     
+    print("Datasets prepared.", flush=True)
     # Data collator
     from transformers import DataCollatorForLanguageModeling
     data_collator = DataCollatorForLanguageModeling(
@@ -125,11 +138,11 @@ def train_deepseek_vl2():
     
     # Training arguments
     training_args = TrainingArguments(
-        output_dir="./deepseek-vl2-mimic-cxr",
+        output_dir="../results/pretraining/deepseek-vl2-mimic-cxr",
         num_train_epochs=3,
-        per_device_train_batch_size=2,
-        per_device_eval_batch_size=2,
-        gradient_accumulation_steps=8,
+        per_device_train_batch_size=1,
+        per_device_eval_batch_size=1,
+        gradient_accumulation_steps=16,
         gradient_checkpointing=False, # Deepseek-VL2 does not support gradient checkpointing
         learning_rate=2e-4,
         weight_decay=0.01,
@@ -159,13 +172,13 @@ def train_deepseek_vl2():
     )
     
     # Start training
-    print("Starting training...")
+    print("Starting training...", flush=True)
     trainer.train()
     
     # Save final model
-    trainer.save_model("./deepseek-vl2-mimic-cxr-final")
+    trainer.save_model("../results/pretraining/deepseek-vl2-mimic-cxr-final")
     
-    print("Training complete!")
+    print("Training complete!", flush=True)
 
 
 if __name__ == "__main__":

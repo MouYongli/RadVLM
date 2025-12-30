@@ -15,7 +15,7 @@ def load_dataset() -> list:
     try:
         # Load images and texts from the dataset
         data_dir = DATA_PROCESSED_DIR
-        print(f"Loading dataset from: {data_dir}")
+        print(f"Loading dataset from: {data_dir}", flush=True)
         
         if not os.path.exists(data_dir):
             raise FileNotFoundError(f"Dataset directory does not exist: {data_dir}")
@@ -29,7 +29,7 @@ def load_dataset() -> list:
 
                     # Check if the corresponding image directory exists
                     if not os.path.exists(os.path.join(root, file.replace('.txt', ''))):
-                        print(f"Image directory for {file} does not exist.")
+                        print(f"Image directory for {file} does not exist.", flush=True)
                         continue # If no images exist for this report, skip this datapoint
                     else:
                         image_path = os.path.abspath(os.path.join(root, file.replace('.txt', ''))).replace("raw", "processed/2048")
@@ -44,6 +44,6 @@ def load_dataset() -> list:
 
         return dataset
     except Exception as e:
-        print(f"Error loading dataset: {e}")
+        print(f"Error loading dataset: {e}", flush=True)
         return []
     
