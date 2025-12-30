@@ -35,6 +35,9 @@ class RadVLMDatasetDeepseek(Dataset):
             return data
         import pandas as pd
         df_split = pd.read_csv(split_file)
+
+        split_dict = dict(zip(df_split['dicom_id'], df_split['split']))
+
         filtered_data = []
         for item in data:
             images = item["images"]
@@ -51,9 +54,8 @@ class RadVLMDatasetDeepseek(Dataset):
                     print(f"Image file does not exist: {image}", flush=True)
                     continue
                 image_filename = os.path.basename(image).replace('.jpg', '')
-                split_row = df_split[df_split['dicom_id'] == image_filename]
-                if not split_row.empty:
-                    item_split = split_row['split'].values[0]
+                item_split = split_dict.get(image_filename)
+                if item_split is not None:
                     if item_split == split:
                         filtered_data_item["images"].append(image)
                 else:

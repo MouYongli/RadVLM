@@ -191,3 +191,5 @@ src/radvlm/utils/config.py
 # Trained models
 */deepseek-vl2-mimic-cxr-final
 */deepseek-vl2-mimic-cxr
+results/pretraining/deepseek-vl2-mimic-cxr-final
+results/pretraining/deepseek-vl2-mimic-cxr
