@@ -11,7 +11,7 @@
 ### Request the time you need for execution. The full format is D-HH:MM:SS
 ### You must at least specify minutes OR days and hours and may add or
 ### leave out any other parameters
-#SBATCH --time=80:00:00
+#SBATCH --time=02:00:00
 
 ### Request a host with a GPU
 ### If you need two GPUs, change the number accordingly
@@ -25,7 +25,7 @@ module load GCCcore/.9.3.0
 module load Python/3.9.6
 module load cuDNN/8.1.1.33-CUDA-11.2.1
 
-export CONDA_ENV_NAME=deepseekenv2
+export CONDA_ENV_NAME=deepseekenv
 export CONDA_ROOT=$HOME/miniforge3
 export PATH="$CONDA_ROOT/bin:$PATH"
 

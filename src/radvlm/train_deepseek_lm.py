@@ -124,9 +124,9 @@ def train_deepseek_vl2():
     # Prepare datasets
     raw_data = load_dataset()
     
-    train_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='train')
+    train_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='train', mode="train")
     
-    val_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='validate')
+    val_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='validate', mode="eval")
     
     print("Datasets prepared.", flush=True)
     # Data collator
@@ -137,8 +137,9 @@ def train_deepseek_vl2():
     )
     
     # Training arguments
+    output_dir = "../results/pretraining/deepseek-vl2-mimic-cxr"
     training_args = TrainingArguments(
-        output_dir="../results/pretraining/deepseek-vl2-mimic-cxr",
+        output_dir=output_dir,
         num_train_epochs=3,
         per_device_train_batch_size=1,
         per_device_eval_batch_size=1,
@@ -150,7 +151,12 @@ def train_deepseek_vl2():
         logging_steps=10,
         save_steps=500,
         eval_steps=500,
-        save_total_limit=3,
+        eval_strategy="steps",  # Evaluate every eval_steps
+        save_total_limit=3,  # Keep only last 3 checkpoints to save space
+        load_best_model_at_end=True,  # Load best model at the end
+        metric_for_best_model="loss",  # Use validation loss as metric
+        greater_is_better=False,  # Lower loss is better
+        save_safetensors=True,  # Use safetensors format (more efficient)
         fp16=False,
         bf16=True,
         optim="adamw_torch",
@@ -171,9 +177,23 @@ def train_deepseek_vl2():
         data_collator=data_collator,
     )
     
-    # Start training
+    # Check for existing checkpoints to resume from
+    checkpoint = None
+    if os.path.isdir(output_dir):
+        checkpoints = [os.path.join(output_dir, d) for d in os.listdir(output_dir) 
+                      if d.startswith("checkpoint")]
+        if checkpoints:
+            # Get the latest checkpoint
+            checkpoint = max(checkpoints, key=os.path.getctime)
+            print(f"Found checkpoint: {checkpoint}. Resuming training...", flush=True)
+        else:
+            print("No checkpoint found. Starting from scratch...", flush=True)
+    else:
+        print("No output directory found. Starting from scratch...", flush=True)
+    
+    # Start training (resume from checkpoint if available)
     print("Starting training...", flush=True)
-    trainer.train()
+    trainer.train(resume_from_checkpoint=checkpoint)
     
     # Save final model
     trainer.save_model("../results/pretraining/deepseek-vl2-mimic-cxr-final")
