@@ -10,3 +10,5 @@ deepspeed
 mpi4py
 peft==0.8.2
 wandb
+nltk
+pydicom

@@ -226,55 +226,99 @@ def delete_index_files(data_dir):
         print(f"Error deleting index files: {e}")
         return
 
-def resize_images(data_dir, max_resolution=2048):
+def resize_single_image(args):
+    """Resize a single image file."""
+    image_path, max_resolution = args
+    
+    try:
+        with Image.open(image_path) as img:
+            w, h = img.size
+            
+            # Check if resizing is needed
+            if w > max_resolution or h > max_resolution:
+                scale = max_resolution / max(w, h)
+                new_size = (int(w * scale), int(h * scale))
+                new_img = img.resize(new_size, Image.BICUBIC)
+                new_img.save(image_path)
+                return f"✓ Resized: {os.path.basename(image_path)} ({w}x{h} → {new_size[0]}x{new_size[1]})"
+            else:
+                # Image already within limits, no action needed
+                return f"○ Skipped: {os.path.basename(image_path)} (already {w}x{h})"
+                
+    except Exception as e:
+        return f"✗ Error: {os.path.basename(image_path)}: {e}"
+
+
+def resize_images_batch(data_dir, max_resolution=768, num_workers=2):
     """
-    Resize images to a maximum resolution while maintaining aspect ratio.
+    Resize images to a maximum resolution while maintaining aspect ratio using batch processing.
     
     Args:
+        data_dir (str): Path to the directory containing images.
         max_resolution (int): Maximum resolution for the longest side of the image.
+        num_workers (int): Number of parallel workers for processing.
         
     Returns:
         None
     """
-
     try:
-        print(f"Resizing images to max resolution {max_resolution}")
-        # here = os.path.dirname(os.path.abspath(__file__))
-        # data_dir = os.path.join(here, "..", "..", "..", "data", "raw", "MIMIC-CXR-JPG")
-        # Load images and texts from the dataset
-        if not os.path.exists(data_dir):
-            print("Dataset directory does not exist.")
-            raise FileNotFoundError("Dataset directory does not exist.")
+        print(f"Resizing images to max resolution {max_resolution}", flush=True)
         
-        for root, dirname, files in os.walk(data_dir):
+        if not os.path.exists(data_dir):
+            raise FileNotFoundError(f"Dataset directory does not exist: {data_dir}")
+        
+        # Collect all image paths
+        print("Scanning for images...", flush=True)
+        image_paths = []
+        for root, dirs, files in os.walk(data_dir):
             for file in files:
-                if file.endswith('.jpg'): # Radiology reports are stored as .txt files
-                    image_path = os.path.join(root, file)
-                    # Print the resolution of the image and resize it if necessary
-                    with Image.open(image_path) as img:
-                        # print(f"Image {file}, resolution: {img.size}")
-                        w, h = img.size
-                        if w > max_resolution or h > max_resolution:
-                            scale = max_resolution / max(w, h)
-                            new_size = (int(w * scale), int(h * scale))
-                            new_img = img.resize(new_size, Image.BICUBIC)
-                            # new_path = image_path.replace("MIMIC-CXR", f"MIMIC-CXR/processed/{max_resolution}")
-                            # if new_path == image_path:
-                            #     raise ValueError("New path is the same as the original path.")
-                            # os.makedirs(os.path.dirname(new_path), exist_ok=True)
-                            new_img.save(image_path)  # Save the resized image
-                            print(f"Saved resized image to {image_path}")
-                            # print(f"Resized image {file} to {new_size}, saved as {new_path}")
-                        else:
-                            # new_path = image_path.replace("MIMIC-CXR", f"MIMIC-CXR/processed/{max_resolution}")
-                            # if new_path == image_path:
-                            #     raise ValueError("New path is the same as the original path.")
-                            # os.makedirs(os.path.dirname(new_path), exist_ok=True)
-                            img.save(image_path)
-                            print(f"Image is within the max resolution, copied to {image_path}")
-
-        print("Image resizing completed.")
+                if file.lower().endswith('.jpg'):
+                    image_paths.append(os.path.join(root, file))
+        
+        if not image_paths:
+            print("No images found!")
+            return
+        
+        total = len(image_paths)
+        print(f"Found {total} images. Processing with {num_workers} parallel workers in batches...", flush=True)
+        
+        # Process in chunks to limit memory usage
+        chunk_size = 50  # Process 50 images at a time
+        completed = 0
+        resized_count = 0
+        skipped_count = 0
+        error_count = 0
+        
+        for i in range(0, len(image_paths), chunk_size):
+            chunk = image_paths[i:i+chunk_size]
+            args = [(img_path, max_resolution) for img_path in chunk]
+            
+            print(f"\nProcessing batch {i//chunk_size + 1} ({completed}/{total} completed)...", flush=True)
+            
+            with Pool(processes=num_workers) as pool:
+                for result in pool.imap_unordered(resize_single_image, args):
+                    completed += 1
+                    
+                    # Count results
+                    if result.startswith("✓"):
+                        resized_count += 1
+                    elif result.startswith("○"):
+                        skipped_count += 1
+                    elif result.startswith("✗"):
+                        error_count += 1
+                        print(result, flush=True)  # Print errors immediately
+            
+            # Pool is closed and joined here, freeing memory
+            print(f"Batch complete. Progress: {completed}/{total}", flush=True)
+        
+        print(f"\nImage resizing completed:")
+        print(f"  Total processed: {total}")
+        print(f"  Resized: {resized_count}")
+        print(f"  Skipped (already correct size): {skipped_count}")
+        print(f"  Errors: {error_count}")
+        
         return
+        
     except Exception as e:
         print(f"Error resizing images: {e}")
         return
@@ -291,7 +335,7 @@ if __name__ == "__main__":
             copy_data_to_new_dir(old_data_dir, new_data_dir)
             delete_index_files(new_data_dir)
             transform_dcm_to_jpg(new_data_dir)
-            # resize_images(new_data_dir, max_resolution=2048)
+            resize_images_batch(new_data_dir, max_resolution=768)
         else:
             print(f"Old data directory {old_data_dir} does not exist")
     except Exception as e:

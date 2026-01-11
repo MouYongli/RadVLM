@@ -2,13 +2,14 @@ import os
 import torch
 from torch.utils.data import Dataset
 import torch.nn.functional as F
+from PIL import Image
 
 from deepseek_vl2.utils.io import load_pil_images
 
 from src.radvlm.utils.config import DATA_PROCESSED_DIR
 
 class RadVLMDatasetDeepseek(Dataset):
-    def __init__(self, data, processor, tokenizer, max_seq_length=2048, split=None, create_stats=False, mode='train'):
+    def __init__(self, data, processor, tokenizer, max_seq_length=3072, split=None, create_stats=False, mode='train'):
         """
         RadVLM Dataset for Deepseek VL2 model.
         Args:
@@ -184,6 +185,9 @@ class RadVLMDatasetDeepseek(Dataset):
             valid_images = self._validate_images(images, idx)
             if not valid_images:
                 raise ValueError(f"No valid images found for item {idx} (study_id: {study_id})")
+            # for image_path in valid_images:
+            #     with Image.open(image_path) as img:
+            #         print(f"Image resolution for study {study_id}: {img.size}", flush=True)
             
             # Build conversation
             conversation = self._build_conversation(valid_images, report)
@@ -203,6 +207,39 @@ class RadVLMDatasetDeepseek(Dataset):
             
             # Create labels based on mode
             labels = self._create_labels(input_ids, attention_mask, len(valid_images), pil_images, report)
+
+            # Get the assistant token ID
+            assistant_token = "<|Assistant|>"
+            assistant_token_ids = self.processor.tokenizer.encode(
+                assistant_token, 
+                add_special_tokens=False
+            )
+    
+            # print("Assistant token IDs: ",assistant_token_ids, flush=True)
+            
+            # Convert to tensor for comparison if needed
+            if isinstance(input_ids, torch.Tensor):
+                input_ids_list = input_ids.tolist()
+            else:
+                input_ids_list = input_ids
+    
+            # # save input_ids_list to csv for debugging
+            # import csv
+            # import os
+            # debug_dir = "./debug_tokens"
+            # os.makedirs(debug_dir, exist_ok=True)
+            
+            # # Save the token IDs and their decoded values
+            # csv_path = os.path.join(debug_dir, f"input_ids_debug_{len(os.listdir(debug_dir))}.csv")
+            # with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+            #     writer = csv.writer(f)
+            #     writer.writerow(['Position', 'Token_ID', 'Decoded_Token', 'Label'])
+            #     for idx, token_id in enumerate(input_ids_list):
+            #         try:
+            #             decoded = self.processor.tokenizer.decode([token_id])
+            #         except:
+            #             decoded = "<ERROR>"
+            #         writer.writerow([idx, token_id, decoded, labels[idx]])
             
             # Build result dictionary
             result = {
@@ -214,6 +251,7 @@ class RadVLMDatasetDeepseek(Dataset):
             # Add ground truth report for evaluation metrics
             if self.mode == 'eval':
                 result["study_id"] = study_id
+                result["images"] = valid_images
                 result["report"] = report
             
             return result
@@ -306,19 +344,23 @@ class RadVLMDatasetDeepseek(Dataset):
         if self.mode == 'train':
             labels = input_ids.clone()
             
-            # Calculate prompt length using cached value if available
-            prompt_length = self._get_prompt_length(num_images, pil_images)
+            # Find where assistant response actually starts
+            assistant_start_pos = self._find_assistant_start(input_ids)
             
-            # Mask prompt tokens (we only want to train on the response)
-            if prompt_length < len(labels):
-                labels[:prompt_length] = self.ignore_index
+            # Mask everything before the assistant's actual response
+            if assistant_start_pos is not None and assistant_start_pos < len(labels):
+                labels[:assistant_start_pos] = self.ignore_index
+            else:
+                # Fallback to old method if we can't find the token
+                prompt_length = self._get_prompt_length(num_images, pil_images)
+                if prompt_length < len(labels):
+                    labels[:prompt_length] = self.ignore_index
             
             # Mask padding tokens
             labels[attention_mask == 0] = self.ignore_index
             
         else:  # eval mode
             # Tokenize ground truth report for evaluation metrics
-            # Use the processor's tokenizer for consistency
             labels = self.processor.tokenizer(
                 report,
                 return_tensors="pt",
@@ -329,6 +371,36 @@ class RadVLMDatasetDeepseek(Dataset):
             ).input_ids.squeeze(0)
         
         return labels
+    
+    def _find_assistant_start(self, input_ids):
+        """
+        Find the position where the assistant's actual response starts.
+        This searches for the assistant role token and returns the position after it.
+        """
+        # Get the assistant token ID
+        assistant_token = "<|Assistant|>"
+        assistant_token_ids = self.processor.tokenizer.encode(
+            assistant_token, 
+            add_special_tokens=False
+        )
+
+        # print("Assistant token IDs: ",assistant_token_ids, flush=True)
+        
+        # Convert to tensor for comparison if needed
+        if isinstance(input_ids, torch.Tensor):
+            input_ids_list = input_ids.tolist()
+        else:
+            input_ids_list = input_ids
+        
+        # Search for the assistant token sequence
+        for i in range(len(input_ids_list) - len(assistant_token_ids) + 1):
+            if input_ids_list[i:i+len(assistant_token_ids)] == assistant_token_ids:
+                # Return position AFTER the assistant token
+                return i + len(assistant_token_ids)
+        
+        # If not found, return None to trigger fallback
+        print(f"Warning: Could not find assistant token in input_ids", flush=True)
+        return None
 
     def _get_prompt_length(self, num_images, pil_images):
         """Calculate the length of the user prompt in tokens with caching."""
@@ -355,7 +427,7 @@ class RadVLMDatasetDeepseek(Dataset):
             },
             {
                 "role": "<|Assistant|>",
-                "content": ""  # Empty - marks where response begins
+                "content": "Report:"
             }
         ]
     

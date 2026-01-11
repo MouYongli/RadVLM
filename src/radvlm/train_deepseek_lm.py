@@ -151,7 +151,7 @@ def train_deepseek_vl2():
         logging_steps=10,
         save_steps=500,
         eval_steps=500,
-        eval_strategy="steps",  # Evaluate every eval_steps
+        evaluation_strategy="steps",  # Evaluate every eval_steps
         save_total_limit=3,  # Keep only last 3 checkpoints to save space
         load_best_model_at_end=True,  # Load best model at the end
         metric_for_best_model="loss",  # Use validation loss as metric
