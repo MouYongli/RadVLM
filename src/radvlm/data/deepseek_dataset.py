@@ -21,9 +21,9 @@ class RadVLMDatasetDeepseek(Dataset):
             create_stats (bool, optional): Whether to create dataset statistics. Defaults to False.
             mode (str): 'train' for training (with labels), 'eval' for evaluation (without labels). Defaults to 'train'.
         """
-        self.data = self._preprocess_reports(data, create_stats)
         self.processor = processor
         self.tokenizer = tokenizer
+        self.data = self._preprocess_reports(data, create_stats)
         self.max_seq_length = max_seq_length
         self.split = split
         self.mode = mode
@@ -95,8 +95,9 @@ class RadVLMDatasetDeepseek(Dataset):
                     f.write(f"Dataset size for {split} split: {len(data_split)} items\n")
 
                 # Log report length statistics
+                
                 if data_split:
-                    report_lengths = [(item["file"],len(item["content"].strip())) for item in data_split]
+                    report_lengths = [(item["file"],len(self.tokenizer.encode(item["content"].strip(),add_special_tokens=False))) for item in data_split]
                     if report_lengths:
                         lengths = [length for _, length in report_lengths]
                         
@@ -130,14 +131,14 @@ class RadVLMDatasetDeepseek(Dataset):
                     short_report_file = os.path.join(logs_dir, f"short_reports_{split}.txt")
                     with open(short_report_file, 'w') as f:
                         for item in filtered_data:
-                            if len(item["content"].strip().split()) < 20:
+                            if len(self.tokenizer.encode(item["content"].strip(), add_special_tokens=False)) < 20:
                                 f.write(f"Report: {item['content'].strip()}\nImages: {item['images']}\n\n")
 
                     # Save long report examples to a file for inspection
                     long_report_file = os.path.join(logs_dir, f"long_reports_{split}.txt")
                     with open(long_report_file, 'w') as f:
                         for item in filtered_data:
-                            if len(item["content"].strip().split()) > 800:
+                            if len(self.tokenizer.encode(item["content"].strip(), add_special_tokens=False)) > 800:
                                 f.write(f"Report: {item['content'].strip()}\nImages: {item['images']}\n\n")
                 else:
                     print(f"No data available for split '{split}' to create statistics.", flush=True)
