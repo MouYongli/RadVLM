@@ -1,11 +1,13 @@
 from PIL import Image
 import os
+import sys
+sys.path.append('/home/gustke/Projects/RadVLM')
 import pydicom
 import numpy as np
 import subprocess
 from pathlib import Path
 from multiprocessing import Pool
-from src.radvlm.utils.config import DATA_RAW_DIR, DATA_PROCESSED_DIR
+from src.radvlm.utils.config import DATA_RAW_DIR_FULL_DATASET, DATA_PROCESSED_DIR_FULL_DATASET
 
 
 def copy_subdir(args):
@@ -14,13 +16,16 @@ def copy_subdir(args):
     # Extract the relative path structure (e.g., "p10/p10000032")
     parent_name = os.path.basename(os.path.dirname(subdir))
     subdir_name = os.path.basename(subdir)
-    
-    # Create parent directory in destination if needed
-    dest_parent = os.path.join(new_base, parent_name)
-    os.makedirs(dest_parent, exist_ok=True)
-    
-    dest = os.path.join(dest_parent, subdir_name)
-    
+    if subdir.split("/")[-2].startswith("p") and len(subdir.split("/")[-2]) == 3:
+        # Just get the subfolder name, don't recreate parent structure      
+        dest = os.path.join(new_base, subdir_name)
+    else:
+        # Create parent directory in destination if needed
+        dest_parent = os.path.join(new_base, parent_name)
+        os.makedirs(dest_parent, exist_ok=True)
+        
+        dest = os.path.join(dest_parent, subdir_name)
+    # print(f"Copying {parent_name}/{subdir_name} to {dest}...", flush=True)
     try:
         subprocess.run(
             ["rsync", "-ah", "--ignore-existing", f"{subdir}/", f"{dest}/"],
@@ -29,6 +34,7 @@ def copy_subdir(args):
         )
         return f"✓ {parent_name}/{subdir_name}"
     except subprocess.CalledProcessError as e:
+        print(f"Error copying {parent_name}/{subdir_name}: {e}", flush=True)
         return f"✗ {parent_name}/{subdir_name}: {e}"
 
 def copy_data_to_new_dir(old_data_dir: str, new_data_dir: str):   
@@ -54,8 +60,13 @@ def copy_data_to_new_dir(old_data_dir: str, new_data_dir: str):
         subdirs = []
         for top_level_dir in Path(old_data_dir).iterdir():
             if top_level_dir.is_dir():
-                nested_dirs = [str(d) for d in top_level_dir.iterdir() if d.is_dir()]
-                subdirs.extend(nested_dirs)
+                # print(f"Scanning top-level directory: {top_level_dir}", flush=True)
+                # print(old_data_dir.split("/")[-1], flush=True)
+                if old_data_dir.split("/")[-1].startswith("p") and len(old_data_dir.split("/")[-1]) == 3:
+                    subdirs.append(str(top_level_dir))
+                else:
+                    nested_dirs = [str(d) for d in top_level_dir.iterdir() if d.is_dir()]
+                    subdirs.extend(nested_dirs)
         
         if not subdirs:
             print("No subdirectories found!")
@@ -86,7 +97,7 @@ def copy_data_to_new_dir(old_data_dir: str, new_data_dir: str):
         return
     except Exception as e:
         print(f"Error copying data: {e}")
-        return
+        raise ValueError(f"Error copying data: {e}")
 
 
 def transform_single_dcm(dcm_path):
@@ -139,6 +150,7 @@ def transform_single_dcm(dcm_path):
         
         return f"✓ {os.path.basename(dcm_path)}"
     except Exception as e:
+        print(f"Error transforming {dcm_path}: {e}", flush=True)
         return f"✗ {os.path.basename(dcm_path)}: {e}"
 
 
@@ -175,6 +187,9 @@ def transform_dcm_to_jpg(data_dir: str) -> str:
         # Process in chunks to limit memory usage
         chunk_size = 50  # Process 50 files at a time
         completed = 0
+        success_count = 0
+        error_count = 0
+        skipped_count = 0
         
         for i in range(0, len(dcm_files), chunk_size):
             chunk = dcm_files[i:i+chunk_size]
@@ -185,15 +200,24 @@ def transform_dcm_to_jpg(data_dir: str) -> str:
                 for result in pool.imap_unordered(transform_single_dcm, chunk):
                     # print(result, flush=True)
                     completed += 1
+                    if result.startswith("✓"):
+                        success_count += 1
+                    elif result.startswith("⊙"):
+                        skipped_count += 1
+                    elif result.startswith("✗"):
+                        error_count += 1
             
             # Pool is closed and joined here, freeing memory
             print(f"Batch complete. Progress: {completed}/{total}", flush=True)
         
         print("\nTransformed files to .jpg")
+        print(f"  Successfully transformed: {success_count}")
+        print(f"  Skipped (already .jpg): {skipped_count}")
+        print(f"  Errors: {error_count}")
         return
     except Exception as e:
         print(f"Error transforming images: {e}")
-        return
+        raise ValueError(f"Error transforming images: {e}")
 
 
 def delete_index_files(data_dir):
@@ -224,7 +248,7 @@ def delete_index_files(data_dir):
         return
     except Exception as e:
         print(f"Error deleting index files: {e}")
-        return
+        raise ValueError(f"Error deleting index files: {e}")
 
 def resize_single_image(args):
     """Resize a single image file."""
@@ -246,6 +270,7 @@ def resize_single_image(args):
                 return f"○ Skipped: {os.path.basename(image_path)} (already {w}x{h})"
                 
     except Exception as e:
+        print(f"Error resizing {image_path}: {e}", flush=True)
         return f"✗ Error: {os.path.basename(image_path)}: {e}"
 
 
@@ -321,13 +346,13 @@ def resize_images_batch(data_dir, max_resolution=768, num_workers=2):
         
     except Exception as e:
         print(f"Error resizing images: {e}")
-        return
+        raise ValueError(f"Error resizing images: {e}")
 
 if __name__ == "__main__":
     
     try:
-        old_data_dir = DATA_RAW_DIR
-        new_data_dir = DATA_PROCESSED_DIR
+        old_data_dir = DATA_RAW_DIR_FULL_DATASET
+        new_data_dir = DATA_PROCESSED_DIR_FULL_DATASET
 
         # check if old_data_dir exists
         if os.path.exists(old_data_dir):
