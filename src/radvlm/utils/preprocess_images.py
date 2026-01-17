@@ -73,10 +73,10 @@ def copy_data_to_new_dir(old_data_dir: str, new_data_dir: str):
             return
         
         total = len(subdirs)
-        print(f"Found {total} patient directories. Copying with 2 parallel workers in batches...", flush=True)
+        print(f"Found {total} patient directories. Copying with 4 parallel workers in batches...", flush=True)
         
         # Process in chunks to limit memory usage
-        chunk_size = 50  # Process 50 directories at a time
+        chunk_size = 100  # Process 100 directories at a time
         completed = 0
         
         for i in range(0, len(subdirs), chunk_size):
@@ -85,7 +85,7 @@ def copy_data_to_new_dir(old_data_dir: str, new_data_dir: str):
             
             print(f"\nProcessing batch {i//chunk_size + 1} ({completed}/{total} completed)...", flush=True)
             
-            with Pool(processes=2) as pool:
+            with Pool(processes=4) as pool:
                 for result in pool.imap_unordered(copy_subdir, args):
                     # print(result, flush=True)
                     completed += 1
@@ -182,10 +182,10 @@ def transform_dcm_to_jpg(data_dir: str) -> str:
             return
         
         total = len(dcm_files)
-        print(f"Found {total} DICOM files. Transforming with 2 parallel workers in batches...", flush=True)
+        print(f"Found {total} DICOM files. Transforming with 4   parallel workers in batches...", flush=True)
         
         # Process in chunks to limit memory usage
-        chunk_size = 50  # Process 50 files at a time
+        chunk_size = 100  # Process 100 files at a time
         completed = 0
         success_count = 0
         error_count = 0
@@ -196,7 +196,7 @@ def transform_dcm_to_jpg(data_dir: str) -> str:
             
             print(f"\nProcessing batch {i//chunk_size + 1} ({completed}/{total} completed)...", flush=True)
             
-            with Pool(processes=2) as pool:
+            with Pool(processes=4) as pool:
                 for result in pool.imap_unordered(transform_single_dcm, chunk):
                     # print(result, flush=True)
                     completed += 1
@@ -274,7 +274,7 @@ def resize_single_image(args):
         return f"✗ Error: {os.path.basename(image_path)}: {e}"
 
 
-def resize_images_batch(data_dir, max_resolution=768, num_workers=2):
+def resize_images_batch(data_dir, max_resolution=768, num_workers=4):
     """
     Resize images to a maximum resolution while maintaining aspect ratio using batch processing.
     
@@ -308,7 +308,7 @@ def resize_images_batch(data_dir, max_resolution=768, num_workers=2):
         print(f"Found {total} images. Processing with {num_workers} parallel workers in batches...", flush=True)
         
         # Process in chunks to limit memory usage
-        chunk_size = 50  # Process 50 images at a time
+        chunk_size = 100  # Process 100 images at a time
         completed = 0
         resized_count = 0
         skipped_count = 0
