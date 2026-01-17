@@ -193,3 +193,7 @@ src/radvlm/utils/config.py
 */deepseek-vl2-mimic-cxr
 results/pretraining/deepseek-vl2-mimic-cxr-final
 results/pretraining/deepseek-vl2-mimic-cxr
+results/pretraining/deepseek-vl2-mimic-cxr-final-small
+
+# Generated reports in evaluation
+generated_reports*
