@@ -1,0 +1,63 @@
+Report: WET READ: ___ ___ ___ 8:22 PM
+  
+  
+  ET tube 4.1 cm from the carina.  Enteric tube with the tip and side-port in
+  the stomach.  Right internal jugular central venous catheter in the mid SVC. 
+  Two drains projecting over the mediastinum and one over the left hemi thorax. 
+  Multiple epicardial pacing leads projecting over the heart.  Extensive
+  subcutaneous gas along the left chest wall.
+  
+  The lung apices are omitted from view.  No large pneumothorax is seen on this
+  supine view.  There is likely small left pleural effusion.
+  
+  There is a an opacity at the left upper lobe projecting from the aorta to the
+  left apex.  This is new since the study of ___ at 14:29.  It is
+  unclear whether this is expected postoperative change or hemorrhage.  If there
+  is any concern for postoperative bleeding CT of the chest should be obtained.
+  
+   The findings were telephoned to ___ by ___ at 21:30, 
+  ___, ___ min after discovery.  The provider explain that the opacity
+  likely reflects expected postoperative hematoma and that there was no evidence
+  of active bleeding
+ WET READ VERSION #___ ___ ___ 9:34 PM
+  ET tube 4.1 cm from the carina.  Enteric tube with the tip and side-port in
+  the stomach.  Right internal jugular central venous catheter in the mid SVC. 
+  Two drains projecting over the mediastinum and one over the left hemi thorax. 
+  Multiple epicardial pacing leads projecting over the heart.  Extensive
+  subcutaneous gas along the left chest wall.
+  
+  The lung apices are omitted from view.  No large pneumothorax is seen on this
+  supine view.  There is likely small left pleural effusion.
+  
+  There is a an opacity at the left upper lobe projecting from the aorta to the
+  left apex.  This is new since the study of ___ at 14:29.  It is
+  unclear whether this is expected postoperative change or hemorrhage.  If there
+  is any concern for postoperative bleeding CT of the chest should be obtained.
+  
+   The findings were telephoned to ___ by ___ at 21:30, 
+  ___, ___ min after discovery.  The provider explain that the opacity
+  likely reflects expected postoperative hematoma and that there was no evidence
+  of active bleeding
+ ______________________________________________________________________________
+                                 FINAL REPORT
+ INDICATION:  ___ year old man s/p takeback for mediastinal washout  // Post-op
+ CXR
+ 
+ COMPARISON:  Comparison is made with prior studies including ___ at
+ 16:30.
+ 
+ IMPRESSION: 
+ 
+ The lung apices are not included on this study limiting observation.  There is
+ no definite pneumothorax or pneumomediastinum.  There is subcutaneous
+ emphysema on the left as on the earlier study.
+ Extensive postoperative changes are present.  There is a left chest tube and
+ mediastinal drains are present.  Endotracheal tube tip is 4 cm above the
+ carina.  Right central line tip is in the superior vena cava.  Nasogastric
+ tube tip is in the stomach.
+ There is better aeration of the left lung as compared to the earlier study. 
+ There is an area of density in the left apex medially which could represent
+ atelectasis, but correlation with surgical intervention that region is
+ recommended.  This may be accentuated by slight patient rotation to the left.
+Images: ['/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/MIMIC-CXR/p10/p10417000/s57720134/e6f6629f-454c79c3-289a00a8-51669f28-6d7fa2a5.jpg']
+

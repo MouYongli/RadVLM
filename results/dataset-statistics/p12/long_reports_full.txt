@@ -1,0 +1,144 @@
+Report: WET READ: ___ ___ 9:11 PM
+  Interval development of a small to moderate right pneumothorax with leftward
+  mediastinal shift, under clear if due to previous left lower lobe collapse or
+  new tension.  There has also been placement of a right-sided chest tube and 3
+  left-sided chest tubes and presumed needle thoracostomy bilaterally. 
+  Endotracheal tube projects 9.1 cm above the carina.
+  
+  The above findings were communicated urgently via telephone by Dr. ___ to
+  Dr. ___ ___ at 20:49 on ___, ___ min after discovery.  An
+  initial call was made earlier, but the patient was actively coding after
+  intubation and attempt for bronchoscopy.
+  
+  
+  Added images at 20:54 reveal interval placement of a transesophageal echo
+  probe.  A radiopaque structure lateral to the distal trachea is of unclear
+  significance, possibly loculated fluid or the aorta.  It appears slightly more
+  dense when compared with the radiograph of 16:28 on the same day.  Small to
+  moderate right pneumothorax persists.
+  
+  Updated findings were communicated via telephone by Dr. ___ to Dr. ___
+  at 21:00 on ___, ___ min after discovery.
+ WET READ VERSION #1 ___ ___ ___ 8:51 PM
+  Interval development of a moderate right pneumothorax with leftward
+  mediastinal shift, under clear if due to previous left lower lobe collapse or
+  new tension.  There has also been placement of a right-sided chest tube and 3
+  left-sided chest tubes and presumed needle thoracostomy bilaterally. 
+  Endotracheal tube projects 9.1 cm above the carina.
+  
+  The above findings were communicated urgently by Dr. ___ to Dr. ___
+  ___ ___ at 20:49 on ___, ___ min after discovery.  An initial
+  call was made earlier, but the patient was actively coding after intubation
+  and attempt for bronchoscopy.
+ ______________________________________________________________________________
+                                 FINAL REPORT
+ EXAMINATION:  CHEST (PORTABLE AP)
+ 
+ INDICATION:  ___ year old man with LLL collapse, s/p intubation,  // intubation
+ tube placement      intubation tube placement
+ 
+ IMPRESSION: 
+ 
+ Compared to prior chest radiographs on ___ at 16:28.
+ 
+ 4 serial chest radiographs show successive insertion of thoracostomy tubes,
+ ultimately numbering 3 on the left, one on the right.
+ 
+ Since ___:00 a right thoracostomy tube has been inserted, and there is
+ a new right pneumothorax at least small, perhaps larger an collected
+ anteriorly in this supine view.  Orientation of the right thoracostomy tube is
+ consistent with though not diagnostic of fissural placement.  There is no
+ appreciable right pleural effusion or any abnormality in the compensatorily
+ over inflated right lung.
+ 
+ Severe leftward mediastinal shift and elevation of the left hemi diaphragm
+ reflecting left lower lobe collapse and poor aeration of the left lower lobe
+ is still present, but aeration in the left lower lobe has worsened and is a
+ new left pleural effusion are presumably hemo thorax, that develops during the
+ pleural tube insertions and is slightly smaller on the fourth in this series
+ than on the previous images.  3 new left thoracostomy tubes have been placed. 
+ New endotracheal tube ends above the upper margin of the clavicles, 9 cm from
+ the carina, 4 cm above optimal placement, particularly in light of presumed
+ left bronchial obstruction responsible for left lower lobe collapse.  Heart
+ size is indeterminate.
+Images: ['/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/MIMIC-CXR/p12/p12138575/s54490096/82fa80e1-cce3798a-19a65ab7-2fb91180-84b23330.jpg', '/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/MIMIC-CXR/p12/p12138575/s54490096/d1f00ff4-fab0e500-37439f96-d4183248-7ce7c625.jpg', '/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/MIMIC-CXR/p12/p12138575/s54490096/55228aac-3a7be11d-8dec2a38-5aad5cbf-bd772fa5.jpg', '/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/MIMIC-CXR/p12/p12138575/s54490096/d7af7462-f7d64180-ef2c1b19-1333bd32-67755597.jpg']
+
+Report: FINAL ADDENDUM
+ ADDENDUM  Please ignore the previous report that belongs to different patient
+ 
+ The report on this patient chest radiograph is as following
+ 
+ Comparison:  ___
+ 
+ The ET tube tip is approximately 3 cm above the carinal.  NG tube tip is in
+ the stomach.
+ 
+ Cardiac silhouette appears to be substantially increased as compared to the
+ previous examination, by more than 1 cm that might potentially represent
+ different phases of inspiration but interval accumulation of pericardial
+ effusion is a possibility.  Patient continues to be in pulmonary edema,
+ interstitial that appears to be progressed since the prior study.  No
+ pneumothorax is seen.  Bilateral pleural effusions are present.
+                                                                       
+
+ ______________________________________________________________________________
+                                 FINAL REPORT
+ EXAMINATION:  CHEST (PORTABLE AP)
+ 
+ INDICATION:  ___F with h/o HTN, Alport's syndrome s/p 2 renal transplants with
+ chronic graft failure, presenting in hypertensive urgency with respiratory
+ distress.  // interval change
+ 
+ TECHNIQUE:  CHEST (PORTABLE AP)
+ 
+ COMPARISON:  ___
+ 
+ FINDINGS: 
+ 
+ Since the prior study the has been insertion of pigtail catheter in the left
+ pleural space at the mid aspect.  As a consequence there has been interval
+ substantial decrease in the amount of pleural effusion in particular at the
+ basal aspect of the pleura.  Currently the effusion continues to be loculated
+ containing multiple foci of air, most likely trapped within the effusion.  The
+ prior study there has been interval elevation of the hemidiaphragm, slight
+ potentially due to decrease in the amount of pleural fluid with subsequent
+ slight right mediastinal shift.  Left chest wall air is demonstrated along the
+ tract of the catheter.  No pneumothorax seen outside of the fluid collection. 
+ No appreciable pericardial effusion is seen.  Minimal amount of right pleural
+ fluid is demonstrated, increased since the prior study.
+ 
+ Imaged portion of the upper abdomen demonstrate large cortical cyst in the
+ left kidney as well as gallbladder sludge and foci of calcification in the
+ right kidney.
+ 
+ Airways are patent to the subsegmental level bilaterally except fall left
+ lower lobe and lingula where atelectasis is noted most likely due to
+ combination of effusion and elevated left hemidiaphragm.  Except for minimal a
+ right lower lung atelectasis right lung is clear.  Off note is soft tissue
+ lesion, 2.3 x 1.7 cm, pleural or extrapleural based, series 4, image 148,
+ unchanged in appearance since previous CT obtained 2 days ago.
+ 
+ No lytic or sclerotic lesions worrisome for infection or neoplasm
+ demonstrated.  Erosive changes at the manubrial sternal joint suggesting prior
+ inflammation as previously.  Septal thickening in the left upper lobe is
+ minimal.  Besides left lower lobe atelectasis no new findings demonstrated.
+ 
+ IMPRESSION: 
+ 
+ Interval decrease in size in loculated left pleural effusion after placement
+ of the pigtail catheter.  Multiple loculated bubbles of air.  Subcutaneous
+ air.
+ 
+ Left lower lobe consolidation, most likely a combination of atelectasis or
+ infection with no possibility to exclude underlying mass.
+ 
+ Unchanged appearance of the right chest wall/pleural lesion.  Potentially as
+ previously suggested 8 might be related to previous fracture of the left
+ seventh rib but followup is required to exclude the possibility of neoplastic
+ origin.
+ 
+ No changes in the intra-abdominal findings demonstrated but there is higher
+ elevation of left hemidiaphragm potentially due to drainage of pleural
+ effusion with more pronounced right mediastinal shift.
+Images: ['/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/MIMIC-CXR/p12/p12724735/s56052563/9d35bc0d-8b296027-a53b9d47-3c0f04a4-0c38161f.jpg']
+
