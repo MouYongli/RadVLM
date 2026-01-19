@@ -12,3 +12,5 @@ peft==0.8.2
 wandb
 nltk
 pydicom
+trl==0.8.6
+rich

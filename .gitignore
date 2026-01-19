@@ -180,7 +180,7 @@ baselines/qwen/
 models/deepseek-vl2-finetuned/
 
 /data
-*/wandb
+wandb/
 
 # Slurm output files
 output_*.txt
