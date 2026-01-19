@@ -90,13 +90,14 @@ def train_deepseek_vl2():
     import wandb
     wandb.init(
         project="deepseek-vl2-mimic-cxr",
-        name="lora-r16-lr2e-4-3epochs",
+        name="poc-lora-r16-lr2e-4-3epochs-10pct",
         config={
             "model": "deepseek-vl2-small",
             "dataset": "mimic-cxr",
             "lora_r": 16,
             "learning_rate": 2e-4,
-            "epochs": 3
+            "epochs": 3,
+            "data_fraction": 0.10
         }
     )
 
@@ -124,9 +125,9 @@ def train_deepseek_vl2():
     # Prepare datasets
     raw_data = load_dataset()
     
-    train_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='train', mode="train")
+    train_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='train', mode="train", sample_fraction=0.10)  # Use 10% of training data for POC
     
-    val_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='validate', mode="eval")
+    val_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='validate', mode="train", sample_fraction=0.10)  # Use 10% of validation data for POC
     
     print("Datasets prepared.", flush=True)
     # Data collator
@@ -140,7 +141,7 @@ def train_deepseek_vl2():
     output_dir = "../results/pretraining/deepseek-vl2-mimic-cxr"
     training_args = TrainingArguments(
         output_dir=output_dir,
-        num_train_epochs=3,
+        num_train_epochs=3, 
         per_device_train_batch_size=1,
         per_device_eval_batch_size=1,
         gradient_accumulation_steps=16,
@@ -148,9 +149,9 @@ def train_deepseek_vl2():
         learning_rate=2e-4,
         weight_decay=0.01,
         warmup_steps=2,
-        logging_steps=10,
-        save_steps=500,
-        eval_steps=500,
+        logging_steps=20,
+        save_steps=100,  
+        eval_steps=100,
         evaluation_strategy="steps",  # Evaluate every eval_steps
         save_total_limit=3,  # Keep only last 3 checkpoints to save space
         load_best_model_at_end=True,  # Load best model at the end
@@ -180,16 +181,41 @@ def train_deepseek_vl2():
     # Check for existing checkpoints to resume from
     checkpoint = None
     if os.path.isdir(output_dir):
-        checkpoints = [os.path.join(output_dir, d) for d in os.listdir(output_dir) 
-                      if d.startswith("checkpoint")]
+        checkpoints = [
+            os.path.join(output_dir, d) 
+            for d in os.listdir(output_dir) 
+            if d.startswith("checkpoint") and not d.endswith(("emergency", "interrupted"))
+        ]
+        
         if checkpoints:
-            # Get the latest checkpoint
-            checkpoint = max(checkpoints, key=os.path.getctime)
-            print(f"Found checkpoint: {checkpoint}. Resuming training...", flush=True)
+            # Filter for valid checkpoints (must have required files)
+            valid_checkpoints = []
+            for ckpt in checkpoints:
+                # Check for essential files
+                required_files = ["trainer_state.json", "config.json"]
+                has_model = (
+                    os.path.isfile(os.path.join(ckpt, "model.safetensors")) or
+                    os.path.isfile(os.path.join(ckpt, "pytorch_model.bin"))
+                )
+                
+                if has_model and all(os.path.isfile(os.path.join(ckpt, f)) for f in required_files):
+                    valid_checkpoints.append(ckpt)
+                else:
+                    print(f"⚠️  Skipping incomplete checkpoint: {os.path.basename(ckpt)}", flush=True)
+            
+            if valid_checkpoints:
+                # Get the latest valid checkpoint
+                checkpoint = max(valid_checkpoints, key=os.path.getctime)
+                print(f"✓ Found valid checkpoint: {os.path.basename(checkpoint)}")
+                print(f"  Resuming training from step {checkpoint.split('-')[-1]}...\n", flush=True)
+            else:
+                print("No valid checkpoints found. Starting from scratch...\n", flush=True)
         else:
-            print("No checkpoint found. Starting from scratch...", flush=True)
+            print("No checkpoints found. Starting from scratch...\n", flush=True)
     else:
-        print("No output directory found. Starting from scratch...", flush=True)
+        os.makedirs(output_dir, exist_ok=True)
+        print("Created output directory. Starting from scratch...\n", flush=True)
+    
     
     # Start training (resume from checkpoint if available)
     print("Starting training...", flush=True)

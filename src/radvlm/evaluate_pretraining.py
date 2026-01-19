@@ -169,7 +169,10 @@ class DeepSeekVL2Evaluator:
                 eos_token_id=self.tokenizer.eos_token_id,
                 max_new_tokens=512,
                 do_sample=False,
-                use_cache=True
+                use_cache=True,
+                repetition_penalty=1.4,  # Penalize repetition (1.0 = no penalty, higher = more penalty)
+                no_repeat_ngram_size=4,  # Prevent repeating 4-grams
+                length_penalty=1.0  # Neutral length penalty
             )
 
         # print("Pad token ID: ",self.tokenizer.eos_token_id,flush=True)
@@ -264,7 +267,7 @@ def evaluate_pre_training():
     evaluator = DeepSeekVL2Evaluator(model_path=model_path)
     raw_data = load_dataset()
     # print("Raw data item example:", raw_data[0], flush=True)
-    val_dataset = RadVLMDatasetDeepseek(raw_data, evaluator.processor, evaluator.tokenizer, split='train', mode="eval") # TODO: change split to 'validate'/'test' when available
+    val_dataset = RadVLMDatasetDeepseek(raw_data, evaluator.processor, evaluator.tokenizer, split='validate', mode="eval") # TODO: change split to 'validate'/'test' when available
     # print("val dataset item example:", val_dataset[0], flush=True)
 
     # Custom collate function that includes all necessary fields

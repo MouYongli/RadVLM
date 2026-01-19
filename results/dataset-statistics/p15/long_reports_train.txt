@@ -1,0 +1,78 @@
+Report: WET READ: ___ ___ ___ 6:38 PM
+  
+  
+  1. Interval placement of right-sided catheter with near complete resolution of
+  pleural fluid.  Persistent moderate sized basal component of right
+  pneumothorax, unchanged from ___.
+  
+  2. Stable small left pleural effusion and bilateral lower lobe atelectasis,
+  right greater than left.
+  
+  3. Stable mild cardiomegaly and mild vascular congestion
+  
+   The findings were discussed by Dr. ___ with Dr. ___ on the telephone on
+  ___ at 5:49 PM, 5 minutes after discovery of the findings.
+ WET READ VERSION #1 ___ ___ ___ 5:50 PM
+  1. Interval placement of right-sided catheter with near complete resolution of
+  pleural fluid.  Persistent moderate sized basal component of right
+  pneumothorax, unchanged from ___.
+  
+  2. Stable small left pleural effusion and bilateral lower lobe atelectasis,
+  right greater than left.
+  
+  3. Stable mild cardiomegaly and mild vascular congestion
+  
+   The findings were discussed by Dr. ___ with Dr. ___ on the telephone on
+  ___ at 5:49 PM, 5 minutes after discovery of the findings.
+ ______________________________________________________________________________
+                                 FINAL REPORT
+ EXAMINATION:  CHEST (PORTABLE AP)
+ 
+ INDICATION:  ___ year old man in persistent vegetative state s/p remote CVA,
+ s/p PEG/trach on long-term mechanical ventilation now s/p CT-guided pleural
+ catheter placement for right hydropneumothorax.  // Assess for worsening R
+ hydropneumothorax, currently s/p CT-guided pleural catheter placement on low
+ continuous wall suction.
+ 
+ COMPARISON:  Chest x-ray dated ___ at 10:13
+ 
+ FINDINGS: 
+ 
+ Compared to the prior study, there has been interval placement of right-sided
+ catheter with partial interval decrease in the size of the
+ loculatedpneumothorax at the right lung base.  The right hemidiaphragm remains
+ somewhat depressed, but apparently much less so.  A small component of the
+ pneumothorax is again seen in the right paratracheal region, also decreased in
+ size.  A rind of increased density along the lower edge of the right lung is
+ again noted, similar to the prior study-- question related to compressive
+ atelectasis.  The cardiomediastinal silhouette is near midline, with only
+ minimal residual right ward shift.  Possible small amount of right pleural
+ fluid.
+ 
+ Cardiomediastinal silhouette is grossly unchanged in size in contour.  Linear
+ lucency seen adjacent to the descending aorta is unchanged and likely
+ represents artifact as there is no suggestion of pneumomediastinum in this
+ area on the CT images from ___.
+ 
+ Left lower lobe collapse and/or consolidation and small left effusion are also
+ grossly unchanged.
+ 
+ There is upper zone redistribution, but doubt overt CHF.
+ 
+ 
+ IMPRESSION:
+ 
+ 
+ 1. Interval placement of tube at right lung base, with improvement of the
+ right base and right medial apex pneumothorax.  The degree of tension and an
+ depression of the right hemidiaphragm and right ward shift of the mediastinum
+ appear improved.  (Please note that the initial wet read suggested that the
+ right pneumothorax was unchanged.)
+ 2. Density at the right lung base likely reflects severe compressive
+ atelectasis --___ to this area on followup films is requested.
+ 3. Left lower lobe collapse and/or consolidation and small left effusion,
+ grossly unchanged.
+ 4. Cardiomegaly and mild vascular plethora, without overt CHF, similar to
+ prior.
+Images: ['/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/MIMIC-CXR/p15/p15936063/s56934594/0ab66e08-3385fbaf-6cc263a0-99856fa0-176be856.jpg']
+
