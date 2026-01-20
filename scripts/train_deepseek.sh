@@ -17,6 +17,12 @@
 ### If you need two GPUs, change the number accordingly
 #SBATCH --gres=gpu:1
 
+### Project id
+#SBATCH --account=p0025751
+
+### Partition
+#SBATCH --partition=c23g
+
 ### if needed: switch to your working directory (where you saved your program)
 # if you installed Miniforge to a different location, change the path accordingly
 

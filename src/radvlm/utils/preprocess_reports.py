@@ -1,15 +1,13 @@
 from PIL import Image
 import os
 import sys
-
-from radvlm.utils.preprocess_images import transform_single_dcm
 sys.path.append('/home/gustke/Projects/RadVLM')
 import pydicom
 import numpy as np
 import subprocess
 from pathlib import Path
 from multiprocessing import Pool
-from src.radvlm.utils.config import DATA_RAW_DIR_FULL_DATASET, DATA_PROCESSED_DIR_FULL_DATASET
+from src.radvlm.utils.config import DATA_RAW_DIR_FULL_DATASET, DATA_PROCESSED_DIR_FULL_DATASET, DATA_PROCESSED_DIR
 
 def extract_sections_simple(report):
     sections = {}
@@ -127,5 +125,5 @@ def preprocess_reports(data_dir):
     
 
 if __name__ == "__main__":
-    data_dir = DATA_PROCESSED_DIR_FULL_DATASET
+    data_dir = DATA_PROCESSED_DIR
     preprocess_reports(data_dir)
