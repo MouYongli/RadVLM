@@ -7,6 +7,10 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from tqdm import tqdm
 from nltk.translate.bleu_score import sentence_bleu
+from nltk.translate.meteor_score import meteor_score
+from rouge_score import rouge_scorer
+from radgraph import RadGraph
+import nltk
 
 from src.radvlm.data.build_dataset import load_dataset
 from src.radvlm.data.deepseek_dataset import RadVLMDatasetDeepseek
@@ -214,7 +218,7 @@ class DeepSeekVL2Evaluator:
             
             if max_samples and sample_count >= max_samples:
                 break
-        print(f"Study IDs: {study_ids}")
+        # print(f"Study IDs: {study_ids}")
         return study_ids, generated_reports, ground_truth_reports
 
 
@@ -225,7 +229,25 @@ class DeepSeekVL2Evaluator:
         Args:
             generated_reports: List of generated report strings
             ground_truth_reports: List of ground truth report strings
+        
+        Returns:
+            Dictionary containing average scores and individual scores for:
+            - BLEU
+            - ROUGE-1, ROUGE-2, ROUGE-L
+            - METEOR
+            - RadGraph (F1, Precision, Recall)
         """
+        
+        # Download required NLTK data
+        try:
+            nltk.data.find('wordnet')
+        except LookupError:
+            nltk.download('wordnet', quiet=True)
+        try:
+            nltk.data.find('omw-1.4')
+        except LookupError:
+            nltk.download('omw-1.4', quiet=True)
+        
         print("\nComputing evaluation metrics...", flush=True)
         
         # Handle single string inputs by converting to lists
@@ -238,21 +260,82 @@ class DeepSeekVL2Evaluator:
         assert len(generated_reports) == len(ground_truth_reports), \
             f"Mismatch: {len(generated_reports)} generated vs {len(ground_truth_reports)} ground truth reports"
         
-        # Compute BLEU scores for each pair
+        # Initialize score lists
         bleu_scores = []
+        rouge1_scores = []
+        rouge2_scores = []
+        rougeL_scores = []
+        meteor_scores = []
+        
+        # Initialize ROUGE scorer
+        scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
+        
+        # Compute BLEU, ROUGE, and METEOR scores for each pair
+        print("Computing BLEU, ROUGE, and METEOR scores...", flush=True)
         for gen_report, gt_report in zip(generated_reports, ground_truth_reports):
-            # BLEU expects reference as list of tokens and hypothesis as list of tokens
+            # BLEU
             reference = gt_report.split()
             hypothesis = gen_report.split()
             bleu = sentence_bleu([reference], hypothesis)
             bleu_scores.append(bleu)
+            
+            # ROUGE
+            rouge_scores = scorer.score(gt_report, gen_report)
+            rouge1_scores.append(rouge_scores['rouge1'].fmeasure)
+            rouge2_scores.append(rouge_scores['rouge2'].fmeasure)
+            rougeL_scores.append(rouge_scores['rougeL'].fmeasure)
+            
+            # METEOR
+            # METEOR expects tokenized strings
+            meteor = meteor_score([gt_report.split()], gen_report.split())
+            meteor_scores.append(meteor)
         
-        # Calculate average BLEU score
+        # Compute RadGraph scores
+        print("Computing RadGraph scores...", flush=True)
+        try:
+            radgraph = RadGraph()
+            radgraph_results = radgraph(
+                hyps=generated_reports,
+                refs=ground_truth_reports
+            )
+            
+            # Extract RadGraph metrics
+            radgraph_f1 = radgraph_results.get('radgraph-combined', {}).get('f1', 0.0)
+            radgraph_precision = radgraph_results.get('radgraph-combined', {}).get('precision', 0.0)
+            radgraph_recall = radgraph_results.get('radgraph-combined', {}).get('recall', 0.0)
+            
+            # Individual scores if available
+            radgraph_individual = radgraph_results.get('individual_scores', [])
+            
+        except Exception as e:
+            print(f"Warning: RadGraph computation failed: {e}", flush=True)
+            radgraph_f1 = 0.0
+            radgraph_precision = 0.0
+            radgraph_recall = 0.0
+            radgraph_individual = []
+        
+        # Calculate averages
         avg_bleu = sum(bleu_scores) / len(bleu_scores) if bleu_scores else 0.0
+        avg_rouge1 = sum(rouge1_scores) / len(rouge1_scores) if rouge1_scores else 0.0
+        avg_rouge2 = sum(rouge2_scores) / len(rouge2_scores) if rouge2_scores else 0.0
+        avg_rougeL = sum(rougeL_scores) / len(rougeL_scores) if rougeL_scores else 0.0
+        avg_meteor = sum(meteor_scores) / len(meteor_scores) if meteor_scores else 0.0
         
         return {
             "bleu": avg_bleu,
-            "bleu_scores": bleu_scores,  # Individual scores if you need them
+            "rouge1": avg_rouge1,
+            "rouge2": avg_rouge2,
+            "rougeL": avg_rougeL,
+            "meteor": avg_meteor,
+            "radgraph_f1": radgraph_f1,
+            "radgraph_precision": radgraph_precision,
+            "radgraph_recall": radgraph_recall,
+            "bleu_scores": bleu_scores,
+            "rouge1_scores": rouge1_scores,
+            "rouge2_scores": rouge2_scores,
+            "rougeL_scores": rougeL_scores,
+            "meteor_scores": meteor_scores,
+            "radgraph_individual": radgraph_individual,
             "eval_samples": len(generated_reports)
         }
 
@@ -263,7 +346,7 @@ def evaluate_pre_training():
     print("Evaluating pre-trained DeepSeek VL2 model...", flush=True)
     
     here = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(here, "../../results/pretraining/deepseek-vl2-mimic-cxr-final")
+    model_path = os.path.join(here, "../../results/pretraining/deepseek-vl2-mimic-cxr-final-all-sections")
     evaluator = DeepSeekVL2Evaluator(model_path=model_path)
     raw_data = load_dataset()
     # print("Raw data item example:", raw_data[0], flush=True)

@@ -12,3 +12,5 @@ peft==0.8.2
 wandb
 nltk
 pydicom
+rouge_score
+radgraph==0.1.2

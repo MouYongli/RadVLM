@@ -81,7 +81,7 @@ class RadVLMDatasetDeepseek(Dataset):
         print(f"Filtered data to {len(filtered_data)} items for split '{split}'", flush=True)
 
         # Apply sampling for POC (keep only sample_fraction of data)
-        if sample_fraction < 1.0 and split == 'train':
+        if sample_fraction < 1.0 and (split == 'train' or split == 'test'):
             import random
             random.seed(42)  # For reproducibility
             sample_size = int(len(filtered_data) * sample_fraction)
