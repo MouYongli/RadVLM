@@ -7,7 +7,7 @@ import numpy as np
 import subprocess
 from pathlib import Path
 from multiprocessing import Pool
-from src.radvlm.utils.config import DATA_RAW_DIR_FULL_DATASET, DATA_PROCESSED_DIR_FULL_DATASET, DATA_PROCESSED_DIR
+from src.radvlm.utils.config import DATA_PROCESSED_DIR
 
 def extract_sections_simple(report):
     sections = {}

@@ -98,6 +98,14 @@ conda activate qwenenv
 pip install -e .
 ```
 
+4. RadGraph
+
+Download `radgraph-xl.tar.gz` from the [RRG_scorers repository](https://huggingface.co/StanfordAIMI/RRG_scorers/tree/main) and place it in your `.cache` directory. Ensure the file name and directory structure remain unchanged.
+
+## 3. Configuration
+
+In the `src/radvlm/utils` directory, create a new file named `config.py`. This file should define the paths to your data. Use the existing example_config.py file in the same directory as a template and update the values as needed for your environment.
+
 ## Datasets
 
 ### Download datasets
