@@ -4,11 +4,11 @@
 #SBATCH --ntasks=8
 
 ### Job name
-#SBATCH --job-name=DS-VL2-Eval-Pretrain
+#SBATCH --job-name=DS-VL2-Eval-Base
 
 ### Output path for stdout and stderr
 ### %J is the job ID, %I is the array ID
-#SBATCH --output=output_eval_pretraining_deepseek_%J.txt
+#SBATCH --output=output_eval_basemodel_deepseek_%J.txt
 
 ### Request the time you need for execution. The full format is D-HH:MM:SS
 ### You must at least specify minutes OR days and hours and may add or
@@ -45,5 +45,5 @@ conda activate $CONDA_ENV_NAME
 
 # cd $PROJECT_ROOT/src/radvlm
 
-python $PROJECT_ROOT/src/radvlm/evaluate_pretraining.py
+python $PROJECT_ROOT/src/radvlm/evaluate_basemodel.py
 

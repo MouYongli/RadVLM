@@ -8,21 +8,23 @@ from src.radvlm.data.build_dataset import load_dataset
 from src.radvlm.data.deepseek_dataset import RadVLMDatasetDeepseek, collate_fn
 from src.radvlm.utils.evaluation_utils import DeepSeekVL2Evaluator
 
-DeepSeekVL2PretrainingEvaluator = DeepSeekVL2Evaluator
+
+# Simple alias for clarity - all functionality is inherited from parent class
+DeepSeekVL2BaseModelEvaluator = DeepSeekVL2Evaluator
 
 
-def evaluate_pre_training():
-    """Evaluate the pre-trained DeepSeek VL2 model from file on a validate set"""
+def evaluate_basemodel():
+    """Evaluate the DeepSeek VL2 model on a validate set"""
     
-    print("Evaluating pre-trained DeepSeek VL2 model...", flush=True)
+    print("Evaluating DeepSeek VL2 model...", flush=True)
     
     here = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(here, "../../results/pretraining/deepseek-vl2-mimic-cxr-final-all-sections")
-    evaluator = DeepSeekVL2PretrainingEvaluator(model_path=model_path)
+    # model_path = os.path.join(here, "../../results/pretraining/deepseek-vl2-mimic-cxr-final-all-sections")
+    model_path = "deepseek-ai/deepseek-vl2-small" 
+    evaluator = DeepSeekVL2BaseModelEvaluator(model_path=model_path)
     raw_data = load_dataset()
-    # print("Raw data item example:", raw_data[0], flush=True)
+    
     val_dataset = RadVLMDatasetDeepseek(raw_data, evaluator.processor, evaluator.tokenizer, split='validate', mode="eval")
-    # print("val dataset item example:", val_dataset[0], flush=True)
 
     # Custom collate function that includes all necessary fields
     # def collate_fn(batch):
@@ -45,7 +47,7 @@ def evaluate_pre_training():
 
     study_ids, generated_reports, ground_truth_reports, losses, perplexities = evaluator.evaluate_reports(val_dataloader, max_samples=500)
     # save the study_ids and generated reports to text file for further inspection
-    output_file = 'generated_reports.txt'
+    output_file = 'generated_reports_basemodel.txt'
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write("=" * 80 + "\n")
         f.write("GENERATED REPORTS EVALUATION\n")
@@ -72,7 +74,7 @@ def evaluate_pre_training():
 if __name__ == "__main__":
     start_time = datetime.now()
     print(f"Start time: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-    evaluate_pre_training()
+    evaluate_basemodel()
     end_time = datetime.now()
     print(f"End time: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Total evaluation time: {end_time - start_time}")
