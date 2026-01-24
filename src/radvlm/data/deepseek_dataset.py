@@ -81,7 +81,7 @@ class RadVLMDatasetDeepseek(Dataset):
         print(f"Filtered data to {len(filtered_data)} items for split '{split}'", flush=True)
 
         # Apply sampling for POC (keep only sample_fraction of data)
-        if sample_fraction < 1.0 and (split == 'train' or split == 'test'):
+        if sample_fraction < 1.0:
             import random
             random.seed(42)  # For reproducibility
             sample_size = int(len(filtered_data) * sample_fraction)
@@ -129,7 +129,7 @@ class RadVLMDatasetDeepseek(Dataset):
                             f.write("file,report_length\n")
 
                     # Remove entries with empty reports
-                    filtered_data = [item for item in data_split if item["content"].strip() != ""]
+                    filtered_data = [item for item in data_split if (item["content"].strip() != "") and (item["content"].strip().lower() != "final report") and (item["content"].strip().lower() != "final report:")]
                     print(f"Removed empty reports. {len(filtered_data)} items remain. {len(data_split) - len(filtered_data)} items were removed.", flush=True)
 
                     with open(os.path.join(logs_dir, f"empty_report_removal_{split}.txt"), 'w') as f:
@@ -166,7 +166,7 @@ class RadVLMDatasetDeepseek(Dataset):
                         f.write("")
 
         else:
-            filtered_data = [item for item in data if item["content"].strip() != ""]
+            filtered_data = [item for item in data if (item["content"].strip() != "") and (item["content"].strip().lower() != "final report") and (item["content"].strip().lower() != "final report:")]
             print(f"Removed empty reports. {len(filtered_data)} items remain. {len(data) - len(filtered_data)} items were removed.", flush=True)
 
         return filtered_data
@@ -493,10 +493,18 @@ def collate_fn(batch):
         return None
     
     # Stack tensors
-    return {
-        "input_ids": torch.stack([item["input_ids"] for item in batch]),
-        "attention_mask": torch.stack([item["attention_mask"] for item in batch]),
-        "labels": torch.stack([item["labels"] for item in batch]),
-        "study_id": [item["study_id"] for item in batch],
-        "report": [item["report"] for item in batch] if "report" in batch[0] else None,
+    result = {
+        "input_ids": torch.stack([item['input_ids'] for item in batch]),
+        "attention_mask": torch.stack([item['attention_mask'] for item in batch]),
+        "labels": torch.stack([item['labels'] for item in batch]),
     }
+    
+    # Add evaluation-specific fields if present
+    if 'study_id' in batch[0]:
+        result["study_id"] = [item['study_id'] for item in batch]
+    if 'images' in batch[0]:
+        result["images"] = [item['images'] for item in batch]
+    if 'report' in batch[0]:
+        result["report"] = [item['report'] for item in batch]
+    
+    return result
