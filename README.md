@@ -106,6 +106,19 @@ Download `radgraph-xl.tar.gz` from the [RRG_scorers repository](https://huggingf
 
 In the `src/radvlm/utils` directory, create a new file named `config.py`. This file should define the paths to your data. Use the existing example_config.py file in the same directory as a template and update the values as needed for your environment.
 
+## 4. Execution order
+
+The `scripts` directory contains all `.sh` scripts required to **train RadVLM**. Execute the scripts in the following order:
+
+1. (optional) `copy-mimic-subset-to-own-hpcwork-job.sh`
+2. `data-preparation-job.sh`
+3. `report-preparation-job.sh`
+4. (optional) `dataset-statistics.sh`
+5. `evaluate_basemodel.sh`
+6. `train_deepseek.sh`
+7. `evaluate_pretraining.sh`
+8. `generate-report-pairs.sh`
+
 ## Datasets
 
 ### Download datasets
