@@ -1,17 +1,19 @@
 #!/usr/bin/zsh
 
+### MPI tasks
+#SBATCH --ntasks=8
 
 ### Job name
-#SBATCH --job-name=DS-VL2-Train
+#SBATCH --job-name=DS-VL2-Eval-Base
 
 ### Output path for stdout and stderr
 ### %J is the job ID, %I is the array ID
-#SBATCH --output=output_train_deepseek_%J.txt
+#SBATCH --output=output_eval_basemodel_deepseek_%J.txt
 
 ### Request the time you need for execution. The full format is D-HH:MM:SS
 ### You must at least specify minutes OR days and hours and may add or
 ### leave out any other parameters
-#SBATCH --time=8:00:00
+#SBATCH --time=02:00:00
 
 ### Request a host with a GPU
 ### If you need two GPUs, change the number accordingly
@@ -43,5 +45,5 @@ conda activate $CONDA_ENV_NAME
 
 # cd $PROJECT_ROOT/src/radvlm
 
-python $PROJECT_ROOT/src/radvlm/train_deepseek_lm.py
+python $PROJECT_ROOT/src/radvlm/evaluate_basemodel.py
 

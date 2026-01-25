@@ -8,6 +8,24 @@ sys.path.append('/home/gustke/Projects/RadVLM')
 here = os.path.dirname(os.path.abspath(__file__))
 
 import torch.nn.functional as F
+
+# Fix for PyTorch 2.6 weights_only loading issue
+# Monkey-patch torch.load to use weights_only=False by default
+_original_torch_load = torch.load
+
+def _patched_torch_load(*args, **kwargs):
+    if 'weights_only' not in kwargs:
+        kwargs['weights_only'] = False
+    return _original_torch_load(*args, **kwargs)
+
+torch.load = _patched_torch_load
+
+# Fix for PyTorch 2.6 weights_only loading issue with numpy in checkpoints
+try:
+    import numpy as np
+    torch.serialization.add_safe_globals([np.core.multiarray._reconstruct, np.ndarray, np.dtype])
+except Exception:
+    pass
 # from accelerate import Accelerator
 
 
@@ -127,7 +145,7 @@ def train_deepseek_vl2():
     
     train_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='train', mode="train", sample_fraction=0.10)  # Use 10% of training data for POC
     
-    val_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='validate', mode="train", sample_fraction=0.10)  # Use 10% of validation data for POC
+    val_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='validate', mode="train")
     
     print("Datasets prepared.", flush=True)
     # Data collator
@@ -192,10 +210,10 @@ def train_deepseek_vl2():
             valid_checkpoints = []
             for ckpt in checkpoints:
                 # Check for essential files
-                required_files = ["trainer_state.json", "config.json"]
+                required_files = ["trainer_state.json", "adapter_config.json"]
                 has_model = (
-                    os.path.isfile(os.path.join(ckpt, "model.safetensors")) or
-                    os.path.isfile(os.path.join(ckpt, "pytorch_model.bin"))
+                    os.path.isfile(os.path.join(ckpt, "adapter_model.safetensors")) or
+                    os.path.isfile(os.path.join(ckpt, "training_args.bin"))
                 )
                 
                 if has_model and all(os.path.isfile(os.path.join(ckpt, f)) for f in required_files):
@@ -229,69 +247,3 @@ def train_deepseek_vl2():
 
 if __name__ == "__main__":
     train_deepseek_vl2()
-
-# try:
-#     here = os.path.dirname(os.path.abspath(__file__))
-
-#     model_path = "deepseek-ai/deepseek-vl2-small"
-#     vl_gpt: DeepseekVLV2ForCausalLM = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True)
-#     vl_gpt.config.use_cache = False  # Disable cache for training
-#     vl_gpt = vl_gpt.to(torch.bfloat16).cuda().eval()
-
-#     tokenizer = radvlm_dataset.processor.tokenizer
-
-#     # === Freeze vision encoder ===
-#     for name, param in vl_gpt.named_parameters():
-#         if "vision_tower" in name or "visual" in name:
-#             param.requires_grad = False
-#     # === Optional: Freeze cross-modal components ===
-#     for name, param in vl_gpt.named_parameters():
-#         if "cross_modal" in name or "vision" in name:
-#             param.requires_grad = False
-
-#     # lora_config = LoraConfig(
-#     #     r=8,  # Rank of LoRA matrices
-#     #     lora_alpha=16,
-#     #     target_modules=["q_proj", "v_proj"],  # Adjust based on your model's attention modules
-#     #     lora_dropout=0.05,
-#     #     bias="none",
-#     #     task_type="CAUSAL_LM"
-#     # )
-#     # vl_gpt = get_peft_model(vl_gpt, lora_config)
-
-#     if __name__ == "__main__":
-        
-#         print("Training the model...")
-#         data_collator = default_data_collator
-
-#         training_args = TrainingArguments(
-#             output_dir="./results",
-#             per_device_train_batch_size=4,
-#             per_device_eval_batch_size=4,
-#             num_train_epochs=3,
-#             evaluation_strategy="steps",
-#             save_strategy="steps",
-#             logging_steps=1,
-#             save_steps=100,
-#             learning_rate=5e-5,
-#             weight_decay=0.01,
-#             fp16=False,  # if using GPU with float16 support
-#             bf16=True,  # if using GPU with bfloat16 support
-#         )
-#         print("Setting up the Trainer...")
-#         trainer = Trainer(
-#             model=vl_gpt,
-#             args=training_args,
-#             train_dataset=radvlm_dataset,
-#             eval_dataset=radvlm_dataset,
-#             tokenizer=tokenizer,
-#             data_collator=data_collator,
-#         )
-#         print("Starting training...")
-#         trainer.train()
-#         # Save the trained model
-#         vl_gpt.save_pretrained(os.path.join(here, "..", "..", "models", "deepseek-vl2-finetuned"))
-#         print("Training completed.")
-# except Exception as e:
-#     print(f"An error occurred: {e}")
-#     print("Please ensure you are in the correct conda environment (deepseekenv) and that the dataset is properly loaded.")

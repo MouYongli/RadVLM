@@ -7,7 +7,7 @@ import numpy as np
 import subprocess
 from pathlib import Path
 from multiprocessing import Pool
-from src.radvlm.utils.config import DATA_RAW_DIR_FULL_DATASET, DATA_PROCESSED_DIR_FULL_DATASET
+from src.radvlm.utils.config import DATA_RAW_DIR, DATA_PROCESSED_DIR
 
 
 def copy_subdir(args):
@@ -351,8 +351,8 @@ def resize_images_batch(data_dir, max_resolution=768, num_workers=4):
 if __name__ == "__main__":
     
     try:
-        old_data_dir = DATA_RAW_DIR_FULL_DATASET
-        new_data_dir = DATA_PROCESSED_DIR_FULL_DATASET
+        old_data_dir = DATA_RAW_DIR
+        new_data_dir = DATA_PROCESSED_DIR
 
         # check if old_data_dir exists
         if os.path.exists(old_data_dir):
