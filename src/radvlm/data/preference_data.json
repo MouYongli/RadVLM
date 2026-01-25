@@ -1,37 +1,51 @@
 [
     {
-        "image_paths": ["Projects/RadVLM/data/raw/MIMIC-CXR-JPG/p10/p10000032/s50414267/02aa804e-bde0afdd-112c0b34-7bc16630-4e384014.jpg", "/home/gustke/Projects/RadVLM/data/raw/MIMIC-CXR-JPG/p10/p10000032/s50414267/174413ec-4ec4c1f7-34ea26b7-c5f994f8-79ef1962.jpg"],
-        "report_1": "The chest X-ray shows clear lung fields with no evidence of consolidation or pleural effusion. The heart size is within normal limits.",
-        "report_2": "There is mild blunting of the left costophrenic angle, suggestive of a small pleural effusion. No acute infiltrates are seen.",
+        "image_paths": ["p10/p10000032/s50414267/02aa804e-bde0afdd-112c0b34-7bc16630-4e384014.jpg", "p10/p10000032/s50414267/174413ec-4ec4c1f7-34ea26b7-c5f994f8-79ef1962.jpg"],
+        "report_1": "FINAL REPORT\n\nFINDINGS:\n\nThere is no focal consolidation, pleural effusion or pneumothorax.  Bilateral nodular opacities that most likely represent nipple shadows. The cardiomediastinal silhouette is normal.  Clips project over the left lung, potentially within the breast. The imaged upper abdomen is unremarkable. Chronic deformity of the posterior left sixth and seventh ribs are noted.\n\nIMPRESSION:\n\nNo acute cardiopulmonary process.",
+        "report_2": "FINAL REPORT\n\nFINDING SECTION:\n\nThere is not seen focal consolidation area. No pleural fluid is appreciated and pneumothorax is not clearly demonstrated. Bilateral nodular type opacity are again seen on both side, probably nipple shadow but this is uncertain and not confirmed. Cardiomediastinal silhouette is roughly normal size without obvious enlargement. Clips is projecting over the left lung field area, possibly related to breast or other structure, location not well defined. Visualized upper abdomen appears grossly unremarkable without acute finding. There is deformity of posterior left sixth rib and seventh rib, chronic in nature, likely old change.\n\nIMPRESSION PART:\n\nNo clear acute cardiopulmonary disease process identified at this time.",
+        "radiologist_preference": "report_1",
+        "ground_truth": "FINAL REPORT\n\nFINDINGS:\n\nThere is no focal consolidation, pleural effusion or pneumothorax.  Bilateral nodular opacities that most likely represent nipple shadows. The cardiomediastinal silhouette is normal.  Clips project over the left lung, potentially within the breast. The imaged upper abdomen is unremarkable. Chronic deformity of the posterior left sixth and seventh ribs are noted.\n\nIMPRESSION:\n\nNo acute cardiopulmonary process."
+    },
+    {
+        "image_paths": ["p10/p10000032/s53189527/2a2277a9-b0ded155-c0de8eb9-c124d10e-82c5caab.jpg", "p10/p10000032/s53189527/e084de3b-be89b11e-20fe3f9f-9c8d8dfe-4cfd202c.jpg"],
+        "report_1": "FINAL REPORT\n\nFINDINGS:\n\nThe cardiac, mediastinal, and hilar contours are within normal limits. Pulmonary vasculature appears normal. The lungs are clear without focal consolidation. No pleural effusion or pneumothorax is identified. Multiple surgical clips are again noted projecting over the left breast. Remote left-sided rib fractures are re-demonstrated.\n\nIMPRESSION:\n\nNo acute cardiopulmonary abnormality.",
+        "report_2": "FINAL REPORT\n\nFINDINGS:\n\nHeart and mediastinum looks normal in size. Lung vessels appear okay. Lungs mostly clear without definite opacity seen. No obvious pleural fluid or pneumothorax appreciated. Clips are seen over left side chest area, likely breast related but not certain. Old fractures on the left ribs are again noted.\n\nIMPRESSION:\n\nNo clear acute cardiopulmonary process identified.",
+        "radiologist_preference": "report_1",
+        "ground_truth": "FINAL REPORT\n\nFINDINGS:\n\nThe cardiac, mediastinal, and hilar contours are within normal limits. Pulmonary vasculature appears normal. The lungs are clear without focal consolidation. No pleural effusion or pneumothorax is identified. Multiple surgical clips are again noted projecting over the left breast. Remote left-sided rib fractures are re-demonstrated.\n\nIMPRESSION:\n\nNo acute cardiopulmonary abnormality."
+    },
+    {
+        "image_paths": ["p10/p10000032/s53911762/68b5c4b1-227d0485-9cc38c3f-7b84ab51-4b472714.jpg", "p10/p10000032/s53911762/fffabebf-74fd3a1f-673b6b41-96ec0ac9-2ab69818.jpg"],
+        "report_1": "FINAL REPORT\n\nFINDINGS:\n\nOnly one frontal chest image available. No definite focal lung consolidation seen. Effusion and pneumothorax are not clearly identified. Heart and mediastinum appear normal in size. Clips project over the left chest region, possibly breast related. Old fractures of the left ribs are noted again. No obvious free air under the diaphragm is seen.\n\nIMPRESSION:\n\nNo obvious acute intrathoracic abnormality identified.",
+        "report_2": "FINAL REPORT\n\nFINDINGS:\n\nSingle frontal view of the chest is provided. There is no focal consolidation, pleural effusion, or pneumothorax. The cardiomediastinal silhouette is within normal limits. Multiple surgical clips are again seen projecting over the left breast. Remote left-sided rib fractures are re-demonstrated. No free air is identified beneath the right hemidiaphragm.\n\nIMPRESSION:\n\nNo acute intrathoracic process.",
         "radiologist_preference": "report_2",
-        "ground_truth": "Small left pleural effusion noted. No acute pulmonary process."
+        "ground_truth": "FINAL REPORT\n\nFINDINGS:\n\nSingle frontal view of the chest is provided. There is no focal consolidation, pleural effusion, or pneumothorax. The cardiomediastinal silhouette is within normal limits. Multiple surgical clips are again seen projecting over the left breast. Remote left-sided rib fractures are re-demonstrated. No free air is identified beneath the right hemidiaphragm.\n\nIMPRESSION:\n\nNo acute intrathoracic process."
     },
     {
-        "image_paths": ["images/xray_002.jpg"],
-        "report_1": "The lungs are hyperinflated with flattened diaphragms, consistent with chronic obstructive pulmonary disease. No focal consolidation.",
-        "report_2": "Normal chest X-ray. No abnormalities detected.",
-        "radiologist_preference": "report_1",
-        "ground_truth": "Findings consistent with COPD. No acute disease."
-    },
-    {
-        "image_paths": ["images/xray_003.jpg"],
-        "report_1": "There is a right lower lobe opacity, which may represent pneumonia. The cardiac silhouette is normal.",
-        "report_2": "The heart and mediastinum are unremarkable. No evidence of pneumonia.",
-        "radiologist_preference": "report_1",
-        "ground_truth": "Right lower lobe pneumonia."
-    },
-    {
-        "image_paths": ["images/xray_004.jpg"],
-        "report_1": "No evidence of pneumothorax or pleural effusion. The bony thorax is intact.",
-        "report_2": "There is a left-sided pneumothorax with partial lung collapse.",
+        "image_paths": ["p10/p10000032/s56699142/ea030e7a-2e3b1346-bc518786-7a8fd698-f673b44c.jpg"],
+        "report_1": "FINAL REPORT\n\nFINDINGS:\n\nLungs are without obvious focal opacity. No large effusion or pneumothorax is seen. Cardiac size appears within expected limits. Mediastinal contours do not show clear abnormality. Clips are seen projecting over the left chest area, likely related to prior surgery. Old fractures of the left ribs are again present.\n\nIMPRESSION:\n\nNo definite acute cardiopulmonary abnormality identified.",
+        "report_2": "FINAL REPORT\n\nFINDINGS:\n\nThe lungs are clear without focal consolidation, pleural effusion, or pneumothorax. The heart size is normal and mediastinal contours are within normal limits. Multiple surgical clips project over the left breast. Old left-sided rib fractures are noted.\n\nIMPRESSION:\n\nNo acute cardiopulmonary process.",
         "radiologist_preference": "report_2",
-        "ground_truth": "Left pneumothorax present."
+        "ground_truth": "FINAL REPORT\n\nFINDINGS:\n\nThe lungs are clear without focal consolidation, pleural effusion, or pneumothorax. The heart size is normal and mediastinal contours are within normal limits. Multiple surgical clips project over the left breast. Old left-sided rib fractures are noted.\n\nIMPRESSION:\n\nNo acute cardiopulmonary process."
     },
     {
-        "image_paths": ["images/xray_005.jpg"],
-        "report_1": "The chest X-ray demonstrates bilateral patchy opacities, most prominent in the lower zones.",
-        "report_2": "Clear lung fields. No abnormal findings.",
+        "image_paths": ["p10/p10000764/s57375967/096052b7-d256dc40-453a102b-fa7d01c6-1b22c6b4.jpg", "p10/p10000764/s57375967/b79e55c3-735ce5ac-64412506-cdc9ea79-f1af521f.jpg", "p10/p10000764/s57375967/dcfeeac4-1597e318-d0e6736a-8b2c2238-47ac3f1b.jpg"],
+        "report_1": "FINAL REPORT\n\nFINDINGS:\n\nPA and lateral chest images are available. The lungs appear adequately inflated. There is an area of focal opacity at the left lung base near the lateral hemidiaphragm. Mild central vascular prominence is present. Bilateral apical pleural thickening is noted. The cardiomediastinal silhouette demonstrates calcification of the aortic arch. The cardiac silhouette is at the upper limits of normal size.\n\nIMPRESSION:\n\nFocal consolidation at the left lung base, which may represent aspiration or pneumonia. Central vascular engorgement.",
+        "report_2": "FINAL REPORT\n\nFINDINGS:\n\nTwo view chest exam provided. Lungs are aerated overall. There is some density seen at the left base close to the diaphragm area, but exact cause is unclear. Mild increase in vascular markings is noted centrally. Apical pleural thickening is seen on both sides. Heart size is borderline enlarged. Calcification is seen along the aortic arch.\n\nIMPRESSION:\n\nLeft basilar consolidation, possibly infection related. Mild vascular congestion.",
         "radiologist_preference": "report_1",
-        "ground_truth": "Bilateral lower zone opacities, likely infection."
+        "ground_truth": "FINAL REPORT\n\nFINDINGS:\n\nPA and lateral views of the chest provided. The lungs are adequately aerated.\n\nThere is a focal consolidation at the left lung base adjacent to the lateral hemidiaphragm. There is mild vascular engorgement. There is bilateral apical pleural thickening.\n\nThe cardiomediastinal silhouette is remarkable for aortic arch calcifications. The heart is top normal in size.\n\nIMPRESSION:\n\nFocal consolidation at the left lung base, possibly representing aspiration or pneumonia.\n\nCentral vascular engorgement."
+    },
+    {
+        "image_paths": ["p10/p10000898/s50771383/0c4eb1e1-b801903c-bcebe8a4-3da9cd3c-3b94a27c.jpg", "p10/p10000898/s50771383/2a280266-c8bae121-54d75383-cac046f4-ca37aa16.jpg"],
+        "report_1": "FINAL REPORT\n\nFINDINGS:\n\nPA and lateral chest images are provided. Lung volumes appear mildly reduced. No definite focal airspace consolidation is seen. Pleural effusion and pneumothorax are not identified. The cardiomediastinal silhouette is within normal limits. Visualized bony structures appear intact. No free intraperitoneal air is seen beneath the right hemidiaphragm.\n\nIMPRESSION:\n\nNo acute intrathoracic process.",
+        "report_2": "FINAL REPORT\n\nFINDINGS:\n\nTwo view chest exam available. Lung volumes are somewhat low. No obvious focal opacity noted. Effusion or pneumothorax is not clearly seen. Heart and mediastinum look normal in size. Bones appear intact without acute abnormality. No clear free air below the diaphragm is appreciated.\n\nIMPRESSION:\n\nNo definite acute intrathoracic abnormality identified.",
+        "radiologist_preference": "report_1",
+        "ground_truth": "FINAL REPORT\n\nFINDINGS:\n\nPA and lateral views of the chest provided. Lung volumes are somewhat low. There is no focal consolidation, effusion, or pneumothorax. The cardiomediastinal silhouette is normal. Imaged osseous structures are intact. No free air below the right hemidiaphragm is seen.\n\nIMPRESSION:\n\nNo acute intrathoracic process."
+    },
+    {
+        "image_paths": ["p10/p10000898/s54205396/9e7a6aae-2580e589-6212d336-9813ebbd-a9239a34.jpg", "p10/p10000898/s54205396/8959e402-2175d68d-edba5a6c-baab51c3-9359f700.jpg", "p10/p10000898/s54205396/b75df1bd-0f22d631-52d73526-2ae7b85a-d843b39d.jpg"],
+        "report_1": "FINAL REPORT\n\nFINDINGS:\n\nComparison is made to a prior study. No significant interval change is seen. There is no focal consolidation, pleural effusion, or pneumothorax. No frank pulmonary edema is identified. The cardiomediastinal silhouette remains within normal limits. Persistent thoracic kyphosis is noted with mild wedging of a mid thoracic vertebral body.\n\nIMPRESSION:\n\nNo evidence of acute cardiopulmonary process.",
+        "report_2": "FINAL REPORT\n\nFINDINGS:\n\nCompared with previous exam, appearance is similar without major interval change. No clear focal lung consolidation seen. Effusion, pneumothorax, or obvious pulmonary edema are not identified. Heart and mediastinal contours appear within expected limits. There is kyphotic curvature of the thoracic spine with mild vertebral body wedging in the mid thoracic region.\n\nIMPRESSION:\n\nNo definite acute cardiopulmonary abnormality identified.",
+        "radiologist_preference": "report_1",
+        "ground_truth": "FINAL REPORT\n\nFINDINGS:\n\nAs compared to the prior examination dated ___, there has been no significant interval change. There is no evidence of focal consolidation, pleural effusion, pneumothorax, or frank pulmonary edema. The cardiomediastinal silhouette is within normal limits. There is persistent thoracic kyphosis with mild wedging of a mid thoracic vertebral body.\n\nIMPRESSION:\n\nNo evidence of acute cardiopulmonary process."
     }
 ]
