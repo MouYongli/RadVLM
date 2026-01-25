@@ -17,7 +17,7 @@ def evaluate_pre_training():
     print("Evaluating pre-trained DeepSeek VL2 model...", flush=True)
     
     here = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(here, "../../results/pretraining/deepseek-vl2-mimic-cxr-final-all-sections")
+    model_path = os.path.join(here, "../../results/pretraining/deepseek-vl2-mimic-cxr-final")
     evaluator = DeepSeekVL2PretrainingEvaluator(model_path=model_path)
     raw_data = load_dataset()
     # print("Raw data item example:", raw_data[0], flush=True)
