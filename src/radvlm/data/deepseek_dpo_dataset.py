@@ -7,6 +7,8 @@ sys.path.append('/home/gustke/Projects/RadVLM')
 
 here = os.path.dirname(os.path.abspath(__file__))
 
+from src.radvlm.utils.config import DATA_PROCESSED_DIR
+
 
 class RadVLMDPODataset(torch.utils.data.Dataset):
     """Dataset for DPO training with preference pairs"""
@@ -89,7 +91,7 @@ class RadVLMDPODataset(torch.utils.data.Dataset):
                 continue
             
             # Validate image files exist
-            valid_images = [img for img in item["image_paths"] if os.path.exists(img)]
+            valid_images = [img for img in item["image_paths"] if os.path.exists(os.path.join(DATA_PROCESSED_DIR, img))]
             if not valid_images:
                 print(f"Skipping item {idx}: No valid image files found", flush=True)
                 continue
@@ -120,7 +122,7 @@ class RadVLMDPODataset(torch.utils.data.Dataset):
                 rejected_report = item["report_1"]
             
             # Load PIL images (similar to deepseek's load_pil_images)
-            pil_images = [Image.open(img_path).convert('RGB') for img_path in image_paths]
+            pil_images = [Image.open(os.path.join(DATA_PROCESSED_DIR, img_path)).convert('RGB') for img_path in image_paths]
             
             # Build prompt
             image_tokens = "<image>" * len(image_paths)
@@ -143,15 +145,6 @@ class RadVLMDPODataset(torch.utils.data.Dataset):
 def dpo_collate_fn(batch, processor, tokenizer, max_seq_length=3072):
     """
     Custom collator for DPO training with DeepSeek-VL2
-    
-    Args:
-        batch: List of samples from dataset
-        processor: DeepSeek VL2 processor
-        tokenizer: Tokenizer
-        max_seq_length: Maximum sequence length
-    
-    Returns:
-        Dictionary with chosen and rejected inputs properly formatted for DPO
     """
     # Filter out None values from failed samples
     batch = [item for item in batch if item is not None]
@@ -159,78 +152,120 @@ def dpo_collate_fn(batch, processor, tokenizer, max_seq_length=3072):
     if len(batch) == 0:
         return None
     
-    # Process chosen responses
-    chosen_conversations = []
-    chosen_images_list = []
+    # Load images for each item (they come as paths from HF Dataset)
+    for item in batch:
+        if "images" in item and isinstance(item["images"][0], str):
+            item["images"] = [Image.open(os.path.join(DATA_PROCESSED_DIR, img_path)).convert('RGB') 
+                            for img_path in item["image_paths"]]
+    
+    # Process each item individually and collect results
+    chosen_inputs_list = []
+    rejected_inputs_list = []
     
     for item in batch:
-        conversation = [
+        # Create conversation for chosen response
+        chosen_conversation = [
             {
                 "role": "<|User|>",
                 "content": item["prompt"],
-                "images": item["image_paths"],
+                "images": item["images"],
             },
             {
                 "role": "<|Assistant|>",
                 "content": item["chosen"]
             }
         ]
-        chosen_conversations.append(conversation)
-        chosen_images_list.append(item["images"])
-    
-    # Process rejected responses
-    rejected_conversations = []
-    rejected_images_list = []
-    
-    for item in batch:
-        conversation = [
+        
+        # Create conversation for rejected response
+        rejected_conversation = [
             {
                 "role": "<|User|>",
                 "content": item["prompt"],
-                "images": item["image_paths"],
+                "images": item["images"],
             },
             {
                 "role": "<|Assistant|>",
                 "content": item["rejected"]
             }
         ]
-        rejected_conversations.append(conversation)
-        rejected_images_list.append(item["images"])
+        
+        # Process individually (not as batch)
+        chosen_input = processor(
+            conversations=chosen_conversation,  # Single conversation, not list of conversations
+            images=item["images"],
+            force_batchify=True,
+            system_prompt="",
+            inference_mode=False,  # Keep EOS token for complete response
+        )
+        
+        rejected_input = processor(
+            conversations=rejected_conversation,  # Single conversation, not list of conversations
+            images=item["images"],
+            force_batchify=True,
+            system_prompt="",
+            inference_mode=False,  # Keep EOS token for complete response
+        )
+        
+        chosen_inputs_list.append(chosen_input)
+        rejected_inputs_list.append(rejected_input)
     
-    # Tokenize chosen responses
-    chosen_inputs = processor(
-        conversations=chosen_conversations,
-        images=chosen_images_list,
-        force_batchify=True,
-        system_prompt="",
-        padding="max_length",
-        max_length=max_seq_length,
-        truncation=True,
-    )
+    # Manually batch the results
+    def stack_inputs(inputs_list):
+        batched = {}
+        for key in inputs_list[0].keys():
+            if isinstance(inputs_list[0][key], torch.Tensor):
+                # Squeeze batch dimension from force_batchify, then stack
+                tensors = [inp[key].squeeze(0) if inp[key].dim() > 1 and inp[key].shape[0] == 1 else inp[key] for inp in inputs_list]
+                batched[key] = torch.stack(tensors)
+            else:
+                batched[key] = [inp[key] for inp in inputs_list]
+        return batched
     
-    # Tokenize rejected responses
-    rejected_inputs = processor(
-        conversations=rejected_conversations,
-        images=rejected_images_list,
-        force_batchify=True,
-        system_prompt="",
-        padding="max_length",
-        max_length=max_seq_length,
-        truncation=True,
-    )
+    chosen_inputs = stack_inputs(chosen_inputs_list)
+    rejected_inputs = stack_inputs(rejected_inputs_list)
     
     # Convert to bfloat16 for pixel values
-    if hasattr(chosen_inputs, 'pixel_values') and chosen_inputs.pixel_values is not None:
-        chosen_inputs.pixel_values = chosen_inputs.pixel_values.to(dtype=torch.bfloat16)
-    if hasattr(rejected_inputs, 'pixel_values') and rejected_inputs.pixel_values is not None:
-        rejected_inputs.pixel_values = rejected_inputs.pixel_values.to(dtype=torch.bfloat16)
+    if "pixel_values" in chosen_inputs and chosen_inputs["pixel_values"] is not None:
+        chosen_inputs["pixel_values"] = chosen_inputs["pixel_values"].to(dtype=torch.bfloat16)
+    if "pixel_values" in rejected_inputs and rejected_inputs["pixel_values"] is not None:
+        rejected_inputs["pixel_values"] = rejected_inputs["pixel_values"].to(dtype=torch.bfloat16)
     
+    # Create prompt_input_ids by processing prompt-only conversations (without assistant response)
+    # Note: User-only conversations don't have EOS token, so we use inference_mode=False
+    # and process as-is (no EOS to remove)
+    prompt_inputs_list = []
+    for item in batch:
+        prompt_conversation = [
+            {
+                "role": "<|User|>",
+                "content": item["prompt"],
+                "images": item["images"],
+            },
+            {"role": "<|Assistant|>", "content": ""}  # Empty assistant response
+        ]
+        
+        prompt_input = processor(
+            conversations=prompt_conversation,
+            images=item["images"],
+            force_batchify=True,
+            system_prompt="",
+            inference_mode=False,  # User-only conversation doesn't have EOS token
+        )
+        prompt_inputs_list.append(prompt_input)
+    
+    # Batch prompt inputs
+    prompt_inputs = stack_inputs(prompt_inputs_list)
+    if "pixel_values" in prompt_inputs and prompt_inputs["pixel_values"] is not None:
+        prompt_inputs["pixel_values"] = prompt_inputs["pixel_values"].to(dtype=torch.bfloat16)
+
     # Return in format expected by DPOTrainer
     return {
-        "input_ids_chosen": chosen_inputs["input_ids"],
-        "attention_mask_chosen": chosen_inputs["attention_mask"],
+        "prompt_input_ids": prompt_inputs["input_ids"],
+        "prompt_attention_mask": prompt_inputs["attention_mask"],
+        "chosen_input_ids": chosen_inputs["input_ids"],
+        "chosen_attention_mask": chosen_inputs["attention_mask"],
         "pixel_values_chosen": chosen_inputs.get("pixel_values"),
-        "input_ids_rejected": rejected_inputs["input_ids"],
-        "attention_mask_rejected": rejected_inputs["attention_mask"],
+        "rejected_input_ids": rejected_inputs["input_ids"],
+        "rejected_attention_mask": rejected_inputs["attention_mask"],
         "pixel_values_rejected": rejected_inputs.get("pixel_values"),
     }
