@@ -1,5 +1,5 @@
 import torch
-from transformers import AutoModelForCausalLM, default_data_collator, TrainingArguments, Trainer
+from transformers import AutoModelForCausalLM, default_data_collator, TrainingArguments, Trainer, EarlyStoppingCallback
 from peft import LoraConfig, get_peft_model, TaskType
 import os
 import sys
@@ -75,7 +75,7 @@ def setup_model_with_lora(model_path: str):
     # Configure LoRA
     lora_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
-        r=16,  # LoRA rank (increase for more capacity: 32, 64)
+        r=32,  # LoRA rank (increase for more capacity: 32, 64)
         lora_alpha=32,  # LoRA scaling factor
         lora_dropout=0.05,
         bias="none",
@@ -108,24 +108,19 @@ def train_deepseek_vl2():
     import wandb
     wandb.init(
         project="deepseek-vl2-mimic-cxr",
-        name="poc-lora-r16-lr2e-4-3epochs-10pct",
+        name="lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct",
         config={
             "model": "deepseek-vl2-small",
             "dataset": "mimic-cxr",
-            "lora_r": 16,
-            "learning_rate": 2e-4,
+            "lora_r": 32,
+            "learning_rate": 1e-4,
+            "lr_scheduler_type": "linear",
+            "warmup_ratio": 0.05, # 5% warmup
             "epochs": 3,
-            "data_fraction": 0.10
+            "data_fraction": 1.0,
+            "early_stopping_patience": 6
         }
     )
-
-    # Initialize Accelerator
-    # accelerator = Accelerator(
-    #     gradient_accumulation_steps=4,
-    #     mixed_precision='bf16',
-    #     log_with="wandb",
-    #     project_dir="./logs"
-    # )
     
     # Model setup
     model_path = "deepseek-ai/deepseek-vl2-small" 
@@ -143,7 +138,7 @@ def train_deepseek_vl2():
     # Prepare datasets
     raw_data = load_dataset()
     
-    train_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='train', mode="train", sample_fraction=0.10)  # Use 10% of training data for POC
+    train_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='train', mode="train")
     
     val_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='validate', mode="train")
     
@@ -156,7 +151,7 @@ def train_deepseek_vl2():
     )
     
     # Training arguments
-    output_dir = "../results/pretraining/deepseek-vl2-mimic-cxr"
+    output_dir = "../../../hpcwork/p0025751/results/pretraining/deepseek-vl2-mimic-cxr-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct"
     training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=3, 
@@ -164,12 +159,12 @@ def train_deepseek_vl2():
         per_device_eval_batch_size=1,
         gradient_accumulation_steps=16,
         gradient_checkpointing=False, # Deepseek-VL2 does not support gradient checkpointing
-        learning_rate=2e-4,
+        learning_rate=1e-4,
         weight_decay=0.01,
-        warmup_steps=2,
-        logging_steps=20,
-        save_steps=100,  
-        eval_steps=100,
+        warmup_ratio=0.05, # 5% warmup
+        logging_steps=50,
+        save_steps=200,  
+        eval_steps=200,
         evaluation_strategy="steps",  # Evaluate every eval_steps
         save_total_limit=3,  # Keep only last 3 checkpoints to save space
         load_best_model_at_end=True,  # Load best model at the end
@@ -179,9 +174,9 @@ def train_deepseek_vl2():
         fp16=False,
         bf16=True,
         optim="adamw_torch",
-        lr_scheduler_type="cosine",
+        lr_scheduler_type="linear",
         report_to="wandb",  # Options: "wandb", "tensorboard", "none"
-        run_name="deepseek-vl2-mimic-cxr",  # Name for wandb run
+        run_name="deepseek-vl2-mimic-cxr-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct",  # Name for wandb run
         remove_unused_columns=False,
         # DeepSpeed config (disabled for single GPU)
         # deepspeed=os.path.join(here, "ds_config.json"),
@@ -194,6 +189,12 @@ def train_deepseek_vl2():
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         data_collator=data_collator,
+        callbacks=[
+            EarlyStoppingCallback(
+                early_stopping_patience=6,  # Stop if no improvement for 6 eval_steps (1200 steps)
+                early_stopping_threshold=0.001  # Minimum improvement to reset patience
+            )
+        ]
     )
     
     # Check for existing checkpoints to resume from
@@ -240,7 +241,7 @@ def train_deepseek_vl2():
     trainer.train(resume_from_checkpoint=checkpoint)
     
     # Save final model
-    trainer.save_model("../results/pretraining/deepseek-vl2-mimic-cxr-final")
+    trainer.save_model("../../../hpcwork/p0025751/results/pretraining/deepseek-vl2-mimic-cxr-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct-final")
     
     print("Training complete!", flush=True)
 
