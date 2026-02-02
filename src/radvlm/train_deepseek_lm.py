@@ -151,7 +151,7 @@ def train_deepseek_vl2():
     )
     
     # Training arguments
-    output_dir = "../../../hpcwork/p0025751/results/pretraining/deepseek-vl2-mimic-cxr-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct"
+    output_dir = "../../../../../hpcwork/p0025751/results/pretraining/deepseek-vl2-mimic-cxr-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct"
     training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=3, 
@@ -241,7 +241,7 @@ def train_deepseek_vl2():
     trainer.train(resume_from_checkpoint=checkpoint)
     
     # Save final model
-    trainer.save_model("../../../hpcwork/p0025751/results/pretraining/deepseek-vl2-mimic-cxr-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct-final")
+    trainer.save_model("../../../../../hpcwork/p0025751/results/pretraining/deepseek-vl2-mimic-cxr-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct-final")
     
     print("Training complete!", flush=True)
 
