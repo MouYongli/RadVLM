@@ -6,7 +6,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')
 
 from src.radvlm.data.build_dataset import load_dataset
 from src.radvlm.data.deepseek_dataset import RadVLMDatasetDeepseek, collate_fn
-from src.radvlm.utils.evaluation_utils import DeepSeekVL2Evaluator
+from src.radvlm.utils.evaluation_utils_deepseek import DeepSeekVL2Evaluator
 
 
 # Simple alias for clarity - all functionality is inherited from parent class
