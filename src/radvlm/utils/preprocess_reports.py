@@ -59,7 +59,8 @@ def preprocess_single_report(report_path: str) -> str:
     
     for sec in relevant_sections:
         if sec in sections:
-            processed_sections.append(f"{sec.upper()}:\n\n{sections[sec]}")
+            if sections[sec].strip():
+                processed_sections.append(f"{sec.upper()}:\n\n{sections[sec]}")
     
     processed_report = 'FINAL REPORT\n\n'
     processed_report += '\n\n'.join(processed_sections).strip()
