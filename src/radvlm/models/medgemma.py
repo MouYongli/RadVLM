@@ -2,10 +2,10 @@ from transformers import AutoProcessor, AutoModelForImageTextToText
 from PIL import Image
 import requests
 import torch
-
+from src.radvlm.utils.config import MEDGEMMA_BASE_MODEL_PATH
 def run_medgemma_example():
     print("Loading MedGemma model and processor...", flush=True)
-    model_id = "/hpcwork/ug301051/models/medgemma-1.5-4b-it"
+    model_id = MEDGEMMA_BASE_MODEL_PATH
     model = AutoModelForImageTextToText.from_pretrained(
         model_id,
         local_files_only=True

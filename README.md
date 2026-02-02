@@ -78,16 +78,9 @@ pip install torch torchvision torchaudio
 
 2. MedGemma-1.5
 ```bash
+cd ..
 conda create --name medgemmaenv python=3.10
-pip install -U transformers
-pip install mpmath
-pip install peft
-pip install pandas
-pip install nltk
-pip install rouge_score
-pip install radgraph
-pip install torch torchvision torchaudio
-pip install huggingface_hub
+pip install -r requirements_medgemma.txt
 # 1. Accept Terms to get access to medgemma
 # 2. Create huggingface token with "Read access to contents of all public gated repos you can access" enabled
 # 3. login to huggingface by either `huggingface-cli login` or `python -c "from huggingface_hub import login; login()"`

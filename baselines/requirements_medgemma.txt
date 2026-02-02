@@ -1,0 +1,11 @@
+transformers==4.57.6
+mpmath
+peft
+pandas
+nltk
+rouge_score
+radgraph
+torch
+torchvision
+torchaudio
+huggingface_hub

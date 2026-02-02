@@ -7,6 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')
 from src.radvlm.data.build_dataset import load_dataset
 from src.radvlm.data.medgemma_dataset import RadVLMDatasetMedGemma, create_collate_fn_medgemma
 from src.radvlm.utils.evaluation_utils_medgemma import MedGemmaEvaluator
+from src.radvlm.utils.config import MEDGEMMA_BASE_MODEL_PATH
 
 MedGemmaPretrainingEvaluator = MedGemmaEvaluator
 
@@ -18,8 +19,7 @@ def evaluate_pre_training():
     
     here = os.path.dirname(os.path.abspath(__file__))
     model_path = os.path.join(here, "../../results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r16-lr1e-4-3epochs-linear-5pctwarmup-3earlystop-10pct-final")
-    base_model_path = "/hpcwork/ug301051/models/medgemma-1.5-4b-it"
-    evaluator = MedGemmaPretrainingEvaluator(model_path=model_path, base_model_path=base_model_path)
+    evaluator = MedGemmaPretrainingEvaluator(model_path=model_path, base_model_path=MEDGEMMA_BASE_MODEL_PATH)
     raw_data = load_dataset()
     
     val_dataset = RadVLMDatasetMedGemma(raw_data, evaluator.processor, evaluator.tokenizer, split='validate', mode="eval")

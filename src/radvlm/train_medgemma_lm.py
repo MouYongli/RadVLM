@@ -28,9 +28,9 @@ except Exception:
     pass
 from src.radvlm.data.build_dataset import load_dataset
 from src.radvlm.data.medgemma_dataset import RadVLMDatasetMedGemma, create_collate_fn_medgemma
+from src.radvlm.utils.config import MEDGEMMA_BASE_MODEL_PATH
 
-
-def setup_model_with_lora(model_path: str):
+def setup_model_with_lora(model_path: str = MEDGEMMA_BASE_MODEL_PATH):
     """
     Load DeepSeek-VL2 and apply LoRA
     
@@ -40,7 +40,7 @@ def setup_model_with_lora(model_path: str):
 
     print("Setting up model with LoRA...", flush=True)
 
-    # model_id = "/hpcwork/ug301051/models/medgemma-1.5-4b-it"
+    
     model = AutoModelForImageTextToText.from_pretrained(
         model_path,
         local_files_only=True
@@ -108,7 +108,7 @@ def train_medgemma_lm():
     )
     
     # Model setup
-    model_path = "/hpcwork/ug301051/models/medgemma-1.5-4b-it"
+    model_path = MEDGEMMA_BASE_MODEL_PATH
     model = setup_model_with_lora(model_path)
     
     # Load processor and tokenizer

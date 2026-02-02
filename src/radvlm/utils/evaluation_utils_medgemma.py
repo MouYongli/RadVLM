@@ -10,11 +10,12 @@ import nltk
 from peft import PeftModel
 
 from src.radvlm.utils.evaluation_utils import compute_metrics
+from src.radvlm.utils.config import MEDGEMMA_BASE_MODEL_PATH
 
 class MedGemmaEvaluator:
     """Evaluator class for MedGemma models"""
     
-    def __init__(self, model_path, base_model_path = "/hpcwork/ug301051/models/medgemma-1.5-4b-it", device='cuda' if torch.cuda.is_available() else 'cpu'):
+    def __init__(self, model_path, base_model_path = MEDGEMMA_BASE_MODEL_PATH, device='cuda' if torch.cuda.is_available() else 'cpu'):
         """
         Initialize evaluator for MedGemma model
         
