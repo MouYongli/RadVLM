@@ -197,4 +197,4 @@ results/pretraining/
 generated_reports*
 
 # Generated report pairs
-deepseek-vl2-generated-report-pairs*
+*generated-report-pairs.txt
