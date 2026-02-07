@@ -1,4 +1,5 @@
 import os
+import json
 from src.radvlm.utils.config import DATA_PROCESSED_DIR
 
 here = os.path.dirname(os.path.abspath(__file__))
@@ -47,3 +48,22 @@ def load_dataset() -> list:
         print(f"Error loading dataset: {e}", flush=True)
         return []
     
+def load_preference_dataset() -> list:
+    """
+    Load preference dataset with image and text pairs.
+
+    Returns:
+        dataset (list): List of dictionaries with image and text pairs.
+    """
+    # Assume the dataset is stored in a json file with preference pairs
+    
+    here = os.path.dirname(os.path.abspath(__file__))
+    dataset_path = os.path.join(here, "preference_data.json")  # TODO: Adjust path as needed
+
+    try:
+        with open(dataset_path, 'r') as f:
+            dataset = json.load(f)
+        return dataset
+    except Exception as e:
+        print(f"Error loading preference dataset: {e}", flush=True)
+        return []

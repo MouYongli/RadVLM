@@ -1,0 +1,3 @@
+Total items before removal: 22757
+Total items after removal: 22757
+Total empty reports removed: 0

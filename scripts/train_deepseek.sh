@@ -11,11 +11,17 @@
 ### Request the time you need for execution. The full format is D-HH:MM:SS
 ### You must at least specify minutes OR days and hours and may add or
 ### leave out any other parameters
-#SBATCH --time=02:00:00
+#SBATCH --time=80:00:00
 
 ### Request a host with a GPU
 ### If you need two GPUs, change the number accordingly
 #SBATCH --gres=gpu:1
+
+### Project id
+#SBATCH --account=p0025751
+
+### Partition
+#SBATCH --partition=c23g
 
 ### if needed: switch to your working directory (where you saved your program)
 # if you installed Miniforge to a different location, change the path accordingly

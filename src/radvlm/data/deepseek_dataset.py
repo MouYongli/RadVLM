@@ -3,13 +3,14 @@ import torch
 from torch.utils.data import Dataset
 import torch.nn.functional as F
 from PIL import Image
+import random
 
 from deepseek_vl2.utils.io import load_pil_images
 
 from src.radvlm.utils.config import DATA_PROCESSED_DIR
 
 class RadVLMDatasetDeepseek(Dataset):
-    def __init__(self, data, processor, tokenizer, max_seq_length=3072, split=None, create_stats=False, mode='train'):
+    def __init__(self, data, processor, tokenizer, max_seq_length=3072, split=None, create_stats=False, mode='train', sample_fraction=1.0):
         """
         RadVLM Dataset for Deepseek VL2 model.
         Args:
@@ -20,6 +21,7 @@ class RadVLMDatasetDeepseek(Dataset):
             split (str, optional): Dataset split to use ('train', 'validate', 'test'). Defaults to None.
             create_stats (bool, optional): Whether to create dataset statistics. Defaults to False.
             mode (str): 'train' for training (with labels), 'eval' for evaluation (without labels). Defaults to 'train'.
+            sample_fraction (float, optional): Fraction of data to sample for POC. Defaults to 1.0.
         """
         self.processor = processor
         self.tokenizer = tokenizer
@@ -28,7 +30,7 @@ class RadVLMDatasetDeepseek(Dataset):
         self.split = split
         self.mode = mode
         if split is not None:
-            self.data = self._filter_data_by_split(self.data, split)
+            self.data = self._filter_data_by_split(self.data, split, sample_fraction=sample_fraction)
         
         # Set ignore index for label masking
         self.ignore_index = -100
@@ -38,7 +40,7 @@ class RadVLMDatasetDeepseek(Dataset):
         
         print(f"Initialized RadVLMDatasetDeepseek with {len(self.data)} samples in {mode} mode.", flush=True)
 
-    def _filter_data_by_split(self, data, split, keep_file_names=None):
+    def _filter_data_by_split(self, data, split, keep_file_names=None, sample_fraction=1.0):
         # Read "mimic-cxr-split.csv" to filter data by split
         split_file = os.path.join(DATA_PROCESSED_DIR, "mimic-cxr-2.0.0-split.csv")
         if not os.path.exists(split_file):
@@ -77,6 +79,14 @@ class RadVLMDatasetDeepseek(Dataset):
                     print(f"Item {item.get('file', 'unknown')} - kept {len(filtered_data_item['images'])} out of {len(images)} images for split '{split}'", flush=True)
                         
         print(f"Filtered data to {len(filtered_data)} items for split '{split}'", flush=True)
+
+        # Apply sampling for POC (keep only sample_fraction of data)
+        if sample_fraction < 1.0:
+            import random
+            random.seed(42)  # For reproducibility
+            sample_size = int(len(filtered_data) * sample_fraction)
+            filtered_data = random.sample(filtered_data, sample_size)
+            print(f"Sampled {sample_size} items ({sample_fraction*100}%) for POC training", flush=True)
 
         return filtered_data
 
@@ -119,7 +129,7 @@ class RadVLMDatasetDeepseek(Dataset):
                             f.write("file,report_length\n")
 
                     # Remove entries with empty reports
-                    filtered_data = [item for item in data_split if item["content"].strip() != ""]
+                    filtered_data = [item for item in data_split if (item["content"].strip() != "") and (item["content"].strip().lower() != "final report") and (item["content"].strip().lower() != "final report:")]
                     print(f"Removed empty reports. {len(filtered_data)} items remain. {len(data_split) - len(filtered_data)} items were removed.", flush=True)
 
                     with open(os.path.join(logs_dir, f"empty_report_removal_{split}.txt"), 'w') as f:
@@ -156,7 +166,7 @@ class RadVLMDatasetDeepseek(Dataset):
                         f.write("")
 
         else:
-            filtered_data = [item for item in data if item["content"].strip() != ""]
+            filtered_data = [item for item in data if (item["content"].strip() != "") and (item["content"].strip().lower() != "final report") and (item["content"].strip().lower() != "final report:")]
             print(f"Removed empty reports. {len(filtered_data)} items remain. {len(data) - len(filtered_data)} items were removed.", flush=True)
 
         return filtered_data
@@ -321,7 +331,8 @@ class RadVLMDatasetDeepseek(Dataset):
             system_prompt="",
             padding="max_length",
             max_length=self.max_seq_length,
-            truncation=True
+            truncation=True,
+            inference_mode=False if self.mode == 'train' else True  # Keep EOS tokens for training - model needs to learn when to stop
         )
 
     def _ensure_length(self, input_ids, attention_mask):
@@ -482,10 +493,18 @@ def collate_fn(batch):
         return None
     
     # Stack tensors
-    return {
-        "input_ids": torch.stack([item["input_ids"] for item in batch]),
-        "attention_mask": torch.stack([item["attention_mask"] for item in batch]),
-        "labels": torch.stack([item["labels"] for item in batch]),
-        "study_id": [item["study_id"] for item in batch],
-        "report": [item["report"] for item in batch] if "report" in batch[0] else None,
+    result = {
+        "input_ids": torch.stack([item['input_ids'] for item in batch]),
+        "attention_mask": torch.stack([item['attention_mask'] for item in batch]),
+        "labels": torch.stack([item['labels'] for item in batch]),
     }
+    
+    # Add evaluation-specific fields if present
+    if 'study_id' in batch[0]:
+        result["study_id"] = [item['study_id'] for item in batch]
+    if 'images' in batch[0]:
+        result["images"] = [item['images'] for item in batch]
+    if 'report' in batch[0]:
+        result["report"] = [item['report'] for item in batch]
+    
+    return result

@@ -1,5 +1,5 @@
 import torch
-from transformers import AutoModelForCausalLM, default_data_collator, TrainingArguments, Trainer
+from transformers import AutoModelForCausalLM, default_data_collator, TrainingArguments, Trainer, EarlyStoppingCallback
 from peft import LoraConfig, get_peft_model, TaskType
 import os
 import sys
@@ -8,6 +8,24 @@ sys.path.append('/home/gustke/Projects/RadVLM')
 here = os.path.dirname(os.path.abspath(__file__))
 
 import torch.nn.functional as F
+
+# Fix for PyTorch 2.6 weights_only loading issue
+# Monkey-patch torch.load to use weights_only=False by default
+_original_torch_load = torch.load
+
+def _patched_torch_load(*args, **kwargs):
+    if 'weights_only' not in kwargs:
+        kwargs['weights_only'] = False
+    return _original_torch_load(*args, **kwargs)
+
+torch.load = _patched_torch_load
+
+# Fix for PyTorch 2.6 weights_only loading issue with numpy in checkpoints
+try:
+    import numpy as np
+    torch.serialization.add_safe_globals([np.core.multiarray._reconstruct, np.ndarray, np.dtype])
+except Exception:
+    pass
 # from accelerate import Accelerator
 
 
@@ -57,7 +75,7 @@ def setup_model_with_lora(model_path: str):
     # Configure LoRA
     lora_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
-        r=16,  # LoRA rank (increase for more capacity: 32, 64)
+        r=32,  # LoRA rank (increase for more capacity: 32, 64)
         lora_alpha=32,  # LoRA scaling factor
         lora_dropout=0.05,
         bias="none",
@@ -90,23 +108,19 @@ def train_deepseek_vl2():
     import wandb
     wandb.init(
         project="deepseek-vl2-mimic-cxr",
-        name="lora-r16-lr2e-4-3epochs",
+        name="lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct",
         config={
             "model": "deepseek-vl2-small",
             "dataset": "mimic-cxr",
-            "lora_r": 16,
-            "learning_rate": 2e-4,
-            "epochs": 3
+            "lora_r": 32,
+            "learning_rate": 1e-4,
+            "lr_scheduler_type": "linear",
+            "warmup_ratio": 0.05, # 5% warmup
+            "epochs": 3,
+            "data_fraction": 1.0,
+            "early_stopping_patience": 6
         }
     )
-
-    # Initialize Accelerator
-    # accelerator = Accelerator(
-    #     gradient_accumulation_steps=4,
-    #     mixed_precision='bf16',
-    #     log_with="wandb",
-    #     project_dir="./logs"
-    # )
     
     # Model setup
     model_path = "deepseek-ai/deepseek-vl2-small" 
@@ -126,7 +140,7 @@ def train_deepseek_vl2():
     
     train_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='train', mode="train")
     
-    val_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='validate', mode="eval")
+    val_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='validate', mode="train")
     
     print("Datasets prepared.", flush=True)
     # Data collator
@@ -137,20 +151,20 @@ def train_deepseek_vl2():
     )
     
     # Training arguments
-    output_dir = "../results/pretraining/deepseek-vl2-mimic-cxr"
+    output_dir = "../../../../../hpcwork/p0025751/results/pretraining/deepseek-vl2-mimic-cxr-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct"
     training_args = TrainingArguments(
         output_dir=output_dir,
-        num_train_epochs=3,
+        num_train_epochs=3, 
         per_device_train_batch_size=1,
         per_device_eval_batch_size=1,
         gradient_accumulation_steps=16,
         gradient_checkpointing=False, # Deepseek-VL2 does not support gradient checkpointing
-        learning_rate=2e-4,
+        learning_rate=1e-4,
         weight_decay=0.01,
-        warmup_steps=2,
-        logging_steps=10,
-        save_steps=500,
-        eval_steps=500,
+        warmup_ratio=0.05, # 5% warmup
+        logging_steps=50,
+        save_steps=200,  
+        eval_steps=200,
         evaluation_strategy="steps",  # Evaluate every eval_steps
         save_total_limit=3,  # Keep only last 3 checkpoints to save space
         load_best_model_at_end=True,  # Load best model at the end
@@ -160,9 +174,9 @@ def train_deepseek_vl2():
         fp16=False,
         bf16=True,
         optim="adamw_torch",
-        lr_scheduler_type="cosine",
+        lr_scheduler_type="linear",
         report_to="wandb",  # Options: "wandb", "tensorboard", "none"
-        run_name="deepseek-vl2-mimic-cxr",  # Name for wandb run
+        run_name="deepseek-vl2-mimic-cxr-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct",  # Name for wandb run
         remove_unused_columns=False,
         # DeepSpeed config (disabled for single GPU)
         # deepspeed=os.path.join(here, "ds_config.json"),
@@ -175,97 +189,62 @@ def train_deepseek_vl2():
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         data_collator=data_collator,
+        callbacks=[
+            EarlyStoppingCallback(
+                early_stopping_patience=6,  # Stop if no improvement for 6 eval_steps (1200 steps)
+                early_stopping_threshold=0.001  # Minimum improvement to reset patience
+            )
+        ]
     )
     
     # Check for existing checkpoints to resume from
     checkpoint = None
     if os.path.isdir(output_dir):
-        checkpoints = [os.path.join(output_dir, d) for d in os.listdir(output_dir) 
-                      if d.startswith("checkpoint")]
+        checkpoints = [
+            os.path.join(output_dir, d) 
+            for d in os.listdir(output_dir) 
+            if d.startswith("checkpoint") and not d.endswith(("emergency", "interrupted"))
+        ]
+        
         if checkpoints:
-            # Get the latest checkpoint
-            checkpoint = max(checkpoints, key=os.path.getctime)
-            print(f"Found checkpoint: {checkpoint}. Resuming training...", flush=True)
+            # Filter for valid checkpoints (must have required files)
+            valid_checkpoints = []
+            for ckpt in checkpoints:
+                # Check for essential files
+                required_files = ["trainer_state.json", "adapter_config.json"]
+                has_model = (
+                    os.path.isfile(os.path.join(ckpt, "adapter_model.safetensors")) or
+                    os.path.isfile(os.path.join(ckpt, "training_args.bin"))
+                )
+                
+                if has_model and all(os.path.isfile(os.path.join(ckpt, f)) for f in required_files):
+                    valid_checkpoints.append(ckpt)
+                else:
+                    print(f"⚠️  Skipping incomplete checkpoint: {os.path.basename(ckpt)}", flush=True)
+            
+            if valid_checkpoints:
+                # Get the latest valid checkpoint
+                checkpoint = max(valid_checkpoints, key=os.path.getctime)
+                print(f"✓ Found valid checkpoint: {os.path.basename(checkpoint)}")
+                print(f"  Resuming training from step {checkpoint.split('-')[-1]}...\n", flush=True)
+            else:
+                print("No valid checkpoints found. Starting from scratch...\n", flush=True)
         else:
-            print("No checkpoint found. Starting from scratch...", flush=True)
+            print("No checkpoints found. Starting from scratch...\n", flush=True)
     else:
-        print("No output directory found. Starting from scratch...", flush=True)
+        os.makedirs(output_dir, exist_ok=True)
+        print("Created output directory. Starting from scratch...\n", flush=True)
+    
     
     # Start training (resume from checkpoint if available)
     print("Starting training...", flush=True)
     trainer.train(resume_from_checkpoint=checkpoint)
     
     # Save final model
-    trainer.save_model("../results/pretraining/deepseek-vl2-mimic-cxr-final")
+    trainer.save_model("../../../../../hpcwork/p0025751/results/pretraining/deepseek-vl2-mimic-cxr-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct-final")
     
     print("Training complete!", flush=True)
 
 
 if __name__ == "__main__":
     train_deepseek_vl2()
-
-# try:
-#     here = os.path.dirname(os.path.abspath(__file__))
-
-#     model_path = "deepseek-ai/deepseek-vl2-small"
-#     vl_gpt: DeepseekVLV2ForCausalLM = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True)
-#     vl_gpt.config.use_cache = False  # Disable cache for training
-#     vl_gpt = vl_gpt.to(torch.bfloat16).cuda().eval()
-
-#     tokenizer = radvlm_dataset.processor.tokenizer
-
-#     # === Freeze vision encoder ===
-#     for name, param in vl_gpt.named_parameters():
-#         if "vision_tower" in name or "visual" in name:
-#             param.requires_grad = False
-#     # === Optional: Freeze cross-modal components ===
-#     for name, param in vl_gpt.named_parameters():
-#         if "cross_modal" in name or "vision" in name:
-#             param.requires_grad = False
-
-#     # lora_config = LoraConfig(
-#     #     r=8,  # Rank of LoRA matrices
-#     #     lora_alpha=16,
-#     #     target_modules=["q_proj", "v_proj"],  # Adjust based on your model's attention modules
-#     #     lora_dropout=0.05,
-#     #     bias="none",
-#     #     task_type="CAUSAL_LM"
-#     # )
-#     # vl_gpt = get_peft_model(vl_gpt, lora_config)
-
-#     if __name__ == "__main__":
-        
-#         print("Training the model...")
-#         data_collator = default_data_collator
-
-#         training_args = TrainingArguments(
-#             output_dir="./results",
-#             per_device_train_batch_size=4,
-#             per_device_eval_batch_size=4,
-#             num_train_epochs=3,
-#             evaluation_strategy="steps",
-#             save_strategy="steps",
-#             logging_steps=1,
-#             save_steps=100,
-#             learning_rate=5e-5,
-#             weight_decay=0.01,
-#             fp16=False,  # if using GPU with float16 support
-#             bf16=True,  # if using GPU with bfloat16 support
-#         )
-#         print("Setting up the Trainer...")
-#         trainer = Trainer(
-#             model=vl_gpt,
-#             args=training_args,
-#             train_dataset=radvlm_dataset,
-#             eval_dataset=radvlm_dataset,
-#             tokenizer=tokenizer,
-#             data_collator=data_collator,
-#         )
-#         print("Starting training...")
-#         trainer.train()
-#         # Save the trained model
-#         vl_gpt.save_pretrained(os.path.join(here, "..", "..", "models", "deepseek-vl2-finetuned"))
-#         print("Training completed.")
-# except Exception as e:
-#     print(f"An error occurred: {e}")
-#     print("Please ensure you are in the correct conda environment (deepseekenv) and that the dataset is properly loaded.")

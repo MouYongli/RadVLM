@@ -1,0 +1,53 @@
+Report: WET READ: ___ ___ 9:17 AM
+  
+  
+  
+  THERE IS NEAR-COMPLETE OPACIFICATION OF THE RIGHT HEMITHORAX, LIKELY SECONDARY
+  TO WORSENING OF THE KNOWN PLEURAL EFFUSION AND VOLUME LOSS. HOWEVER IN THIS
+  SETTING, MUCOUS PLUGGING IS ALSO A POSSIBLE CAUSE.  THERE APPEARS TO BE SOME
+  RIGHTWARD DEVIATION OF THE MEDIASTINAL STRUCTURES, INDICATIVE OF SOME VOLUME
+  LOSS. THERE IS A MODERATE LEFT-SIDED PLEURAL EFFUSION. A RIGHT-SIDED PICC LINE
+  TERMINATES IN THE CONFLUENCE OF THE BRACHIOCEPHALIC VEIN/UPPER SVC. FINDINGS
+  DISCUSSED WITH DR. ___ BY ___ VIA PHONE ON ___ AT 11:50 pm
+ WET READ VERSION #1 ___ ___ 11:50 PM
+  THERE IS NEAR-COMPLETE OPACIFICATION OF THE RIGHT HEMITHORAX, LIKELY SECONDARY
+  DUE WORSENING OF THE KNOWN PLEURAL EFFUSION. HOWEVER IN THIS SETTING, MUCOUS
+  PLUGGING CAN ALSO BE A POTENTIAL CAUSE. THERE IS A MODERATE LEFT-SIDED PLEURAL
+  EFFUSION. A RIGHT-SIDED PICC LINE TERMINATES IN THE CONFLUENCE OF THE
+  BRACHIOCEPHALIC VEIN/UPPER SVC. FINDINGS DISCUSSED WITH DR. ___ BY ___ VIA
+  PHONE ON ___ AT 11:50 pm
+ WET READ VERSION #2 ___ ___ 11:55 PM
+  THERE IS NEAR-COMPLETE OPACIFICATION OF THE RIGHT HEMITHORAX, LIKELY SECONDARY
+  TO WORSENING OF THE KNOWN PLEURAL EFFUSION AND VOLUME LOSS. HOWEVER IN THIS
+  SETTING, MUCOUS PLUGGING IS ALSO A POSSIBLE CAUSE.  THERE APPEARS TO BE SOME
+  RIGHTWARD DEVIATION OF THE MEDIASTINAL STRUCTURES, INDICATIVE OF SOME VOLUME
+  LOSS. THERE IS A MODERATE LEFT-SIDED PLEURAL EFFUSION. A RIGHT-SIDED PICC LINE
+  TERMINATES IN THE CONFLUENCE OF THE BRACHIOCEPHALIC VEIN/UPPER SVC. FINDINGS
+  DISCUSSED WITH DR. ___ BY NSR VIA PHONE ON ___ AT 11:50 pm
+ ______________________________________________________________________________
+                                 FINAL REPORT
+ EXAMINATION:  CHEST (PORTABLE AP)CHEST (PORTABLE AP)i
+ 
+ INDICATION:  ___ year old woman with gall bladder cancer, sepsis, biliary
+ obstruction  // Rule out pneumonia
+ 
+ COMPARISON:  Chest radiographs since ___ most recently ___.
+ 
+ IMPRESSION: 
+ 
+ On ___ patient had large right and moderate left pleural effusion. Today
+ the moderate left pleural effusion is smaller, but the right hemi thorax is
+ now fully opacified.  Since the mediastinum is not shifted to the left, there
+ is an equivalent loss of volume a due to atelectasis compared to the residual
+ right pleural effusion, often an indication that the pleural effusion
+ accumulated slowly. In addition there is an abrupt termination to the air
+ column in the right main bronchus the strongly suggesting retained impacted
+ secretions.  Feeding tube ends in the upper stomach.  No endotracheal tube is
+ seen.
+ 
+ Heterogeneous opacification at the apex of the left lung is new from ___. Although interpreted prospectively it might have been diagnosed as
+ pneumonia, the subsequent chest radiograph performed at 21:30 available the
+ time of this review showed clearing. Therefore this is either edema or
+ aspiration.
+Images: ['/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/MIMIC-CXR/p18/p18573829/s50660145/41d2924f-85f8e580-6d8773b6-5ede09de-b23811f6.jpg']
+

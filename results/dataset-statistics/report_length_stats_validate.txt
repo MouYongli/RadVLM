@@ -1,5 +1,0 @@
-Report length statistics:
-Min: 207
-Max: 1579
-Avg: 640.99
-Total reports: 164

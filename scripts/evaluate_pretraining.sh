@@ -1,8 +1,10 @@
 #!/usr/bin/zsh
 
+### MPI tasks
+#SBATCH --ntasks=8
 
 ### Job name
-#SBATCH --job-name=DS-VL2-Eval
+#SBATCH --job-name=DS-VL2-Eval-Pretrain
 
 ### Output path for stdout and stderr
 ### %J is the job ID, %I is the array ID
@@ -16,6 +18,12 @@
 ### Request a host with a GPU
 ### If you need two GPUs, change the number accordingly
 #SBATCH --gres=gpu:1
+
+### Project id
+#SBATCH --account=p0025751
+
+### Partition
+#SBATCH --partition=c23g
 
 ### if needed: switch to your working directory (where you saved your program)
 # if you installed Miniforge to a different location, change the path accordingly
