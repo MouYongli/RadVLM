@@ -81,48 +81,50 @@ class MedGemmaEvaluator:
         return generated_report
 
 
-    def compute_loss_and_perplexity(self, images, labels):
+    def compute_loss_and_perplexity(self, images, ground_truth_report):
         """
         Compute cross-entropy loss and perplexity for a given batch.
         
         Args:
-            images: List of image file paths
-            labels: Ground truth token IDs (tensor)
+            images: List of PIL Image objects
+            ground_truth_report: Ground truth report text (string)
         
         Returns:
             tuple: (cross_entropy_loss, perplexity)
         """
+        # Build full conversation including the assistant response
         conversation = [
             {
                 "role": "user",
                 "content": [{"type": "image", "image": image} for image in images] + [
                     {"type": "text", "text": "Generate a radiology report for these X-rays."}
                 ]
+            },
+            {
+                "role": "assistant",
+                "content": [{"type": "text", "text": ground_truth_report}]
             }
         ]
 
-        inputs = self.processor.apply_chat_template(
-            conversation, add_generation_prompt=True, tokenize=True,
-            return_dict=True, return_tensors="pt"
-        ).to(self.model.device, dtype=torch.bfloat16)
+        # Apply chat template to get the full conversation tokens
+        text = self.processor.apply_chat_template(
+            conversation, add_generation_prompt=False, tokenize=False
+        ).strip()
 
-        # Prepare labels: ensure they're 2D and on the correct device
-        if labels is not None:
-            labels = labels.to(self.model.device)
-            # If labels are 1D, unsqueeze to make them 2D (batch_size=1, seq_len)
-            if labels.dim() == 1:
-                labels = labels.unsqueeze(0)
-            # Pad or truncate labels to match input length
-            input_length = inputs["input_ids"].shape[-1]
-            label_length = labels.shape[-1]
-            if label_length < input_length:
-                # Pad with -100 (ignore index)
-                padding = torch.full((labels.shape[0], input_length - label_length), -100, 
-                                    dtype=labels.dtype, device=labels.device)
-                labels = torch.cat([labels, padding], dim=1)
-            elif label_length > input_length:
-                # Truncate to input length
-                labels = labels[:, :input_length]
+        # Tokenize and process
+        inputs = self.processor(text=text, images=images, return_tensors="pt", padding=True)
+        inputs = {k: v.to(self.model.device) for k, v in inputs.items() if isinstance(v, torch.Tensor)}
+
+        # Create labels from input_ids, masking prompt tokens
+        labels = inputs["input_ids"].clone()
+        
+        # Mask image tokens and padding
+        image_token_id = self.processor.tokenizer.convert_tokens_to_ids(
+            self.processor.tokenizer.special_tokens_map["boi_token"]
+        )
+        labels[labels == self.processor.tokenizer.pad_token_id] = -100
+        labels[labels == image_token_id] = -100
+        labels[labels == 262144] = -100
         
         # Forward pass with labels to compute loss
         with torch.no_grad():
@@ -162,14 +164,13 @@ class MedGemmaEvaluator:
                 study_id = batch['study_id'][i]
                 images = batch['images'][i] if batch['images'][i] is not None else None
                 gt_report = batch['report'][i]
-                labels = batch['labels'][i]
                 
                 # Generate report
                 generated = self.generate_report(images)
                 
                 # Compute loss and perplexity
                 try:
-                    loss, perplexity = self.compute_loss_and_perplexity(images, labels)
+                    loss, perplexity = self.compute_loss_and_perplexity(images, gt_report)
                     losses.append(loss)
                     perplexities.append(perplexity)
                 except Exception as e:
