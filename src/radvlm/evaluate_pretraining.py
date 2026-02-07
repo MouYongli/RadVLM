@@ -17,23 +17,14 @@ def evaluate_pre_training():
     print("Evaluating pre-trained DeepSeek VL2 model...", flush=True)
     
     here = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(here, "../../results/pretraining/deepseek-vl2-mimic-cxr-poc-lora-r8-lr1e-4-3epochs-linear-5pctwarmup-3earlystop-100pct-final")
+    model_path = os.path.abspath(os.path.join(here, "../../results/pretraining/deepseek-vl2-mimic-cxr-poc-lora-r16-lr1e-4-3epochs-linear-10pctwarmup-10pct-final"))
+    # print(f"Loading model from: {model_path}", flush=True)
     evaluator = DeepSeekVL2PretrainingEvaluator(model_path=model_path)
     raw_data = load_dataset()
     # print("Raw data item example:", raw_data[0], flush=True)
     val_dataset = RadVLMDatasetDeepseek(raw_data, evaluator.processor, evaluator.tokenizer, split='validate', mode="eval")
     # print("val dataset item example:", val_dataset[0], flush=True)
 
-    # Custom collate function that includes all necessary fields
-    # def collate_fn(batch):
-    #     return {
-    #         "study_id": [item['study_id'] for item in batch],
-    #         "input_ids": torch.stack([item['input_ids'] for item in batch]),
-    #         "attention_mask": torch.stack([item['attention_mask'] for item in batch]),
-    #         "labels": torch.stack([item['labels'] for item in batch]),
-    #         "images": [item['images'] for item in batch],
-    #         "report": [evaluator.tokenizer.decode(item['labels'], skip_special_tokens=True) for item in batch]  # Decode labels to get ground truth text
-    #     }
 
     val_dataloader = torch.utils.data.DataLoader(
         val_dataset,
@@ -45,7 +36,7 @@ def evaluate_pre_training():
 
     study_ids, generated_reports, ground_truth_reports, losses, perplexities = evaluator.evaluate_reports(val_dataloader, max_samples=500)
     # save the study_ids and generated reports to text file for further inspection
-    output_file = 'generated_reports_poc-lora-r8-lr1e-4-3epochs-linear-5pctwarmup-3earlystop-100pct.txt'
+    output_file = 'generated_reports_lora-r16-lr1e-4-3epochs-linear-10pctwarmup-10pct-final.txt'
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write("=" * 80 + "\n")
         f.write("GENERATED REPORTS EVALUATION\n")
@@ -71,8 +62,8 @@ def evaluate_pre_training():
 
 if __name__ == "__main__":
     start_time = datetime.now()
-    print(f"Start time: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Start time: {start_time.strftime('%Y-%m-%d %H:%M:%S')}", flush=True)
     evaluate_pre_training()
     end_time = datetime.now()
-    print(f"End time: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"Total evaluation time: {end_time - start_time}")
+    print(f"End time: {end_time.strftime('%Y-%m-%d %H:%M:%S')}", flush=True)
+    print(f"Total evaluation time: {end_time - start_time}", flush=True)

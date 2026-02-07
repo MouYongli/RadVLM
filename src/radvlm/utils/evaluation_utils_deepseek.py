@@ -109,14 +109,13 @@ class DeepSeekVL2Evaluator:
         generated_report = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
         return generated_report
 
-    def compute_loss_and_perplexity(self, images, labels):
+    def compute_loss_and_perplexity(self, images, ground_truth_report):
         """
         Compute cross-entropy loss and perplexity for a given batch.
         
         Args:
             images: List of image file paths
-            labels: Ground truth token IDs (tensor)
-        
+            ground_truth_report: Ground truth report text (string)
         Returns:
             tuple: (cross_entropy_loss, perplexity)
         """
@@ -126,7 +125,7 @@ class DeepSeekVL2Evaluator:
                 "content": "<image>"*len(images) + "\n Generate a radiology report for these X-rays.",
                 "images": images,
             },
-            {"role": "<|Assistant|>", "content": ""},
+            {"role": "<|Assistant|>", "content": ground_truth_report},
         ]
 
         # Load PIL images from the conversation
@@ -143,29 +142,41 @@ class DeepSeekVL2Evaluator:
         inputs_embeds = self.model.prepare_inputs_embeds(**prepare_inputs)
         attention_mask = prepare_inputs.attention_mask.to(self.device)
 
-        # Align labels with input embeddings length
-        input_length = inputs_embeds.shape[1]
-        labels_aligned = labels.to(self.device)
+        # Create labels from the actual input_ids produced by the processor
+        labels = prepare_inputs.input_ids.clone().to(self.device)
         
-        # If labels are longer than inputs, truncate them
-        if labels_aligned.shape[0] > input_length:
-            labels_aligned = labels_aligned[:input_length]
-        # If labels are shorter than inputs, pad them with -100 (ignore index)
-        elif labels_aligned.shape[0] < input_length:
-            padding = torch.full((input_length - labels_aligned.shape[0],), -100, 
-                               dtype=labels_aligned.dtype, device=self.device)
-            labels_aligned = torch.cat([labels_aligned, padding])
+        # Find where the assistant response starts - we need to mask the prompt
+        assistant_token = "<|Assistant|>"
+        assistant_token_ids = self.tokenizer.encode(assistant_token, add_special_tokens=False)
         
-        # Add batch dimension if needed
-        if labels_aligned.dim() == 1:
-            labels_aligned = labels_aligned.unsqueeze(0)
-
+        # Convert input_ids to list for searching
+        input_ids_list = labels[0].tolist() if labels.dim() > 1 else labels.tolist()
+        
+        # Find the position after the assistant token
+        assistant_start_pos = None
+        for i in range(len(input_ids_list) - len(assistant_token_ids) + 1):
+            if input_ids_list[i:i+len(assistant_token_ids)] == assistant_token_ids:
+                assistant_start_pos = i + len(assistant_token_ids)
+                break
+        
+        # Mask everything before the assistant's response (including prompt and special tokens)
+        if assistant_start_pos is not None:
+            if labels.dim() > 1:
+                labels[0, :assistant_start_pos] = -100
+            else:
+                labels[:assistant_start_pos] = -100
+        else:
+            print("Warning: Could not find assistant token, computing loss on full sequence", flush=True)
+        
+        # Mask padding tokens
+        labels[labels == self.tokenizer.pad_token_id] = -100
+        
         # Forward pass to get logits
         with torch.no_grad():
             outputs = self.model.language(
                 inputs_embeds=inputs_embeds,
                 attention_mask=attention_mask,
-                labels=labels_aligned,
+                labels=labels,
                 return_dict=True
             )
         
@@ -202,14 +213,13 @@ class DeepSeekVL2Evaluator:
                 study_id = batch['study_id'][i]
                 images = batch['images'][i] if batch['images'][i] is not None else None
                 gt_report = batch['report'][i]
-                labels = batch['labels'][i]
                 
                 # Generate report
                 generated = self.generate_report(images)
                 
                 # Compute loss and perplexity
                 try:
-                    loss, perplexity = self.compute_loss_and_perplexity(images, labels)
+                    loss, perplexity = self.compute_loss_and_perplexity(images, gt_report)
                     losses.append(loss)
                     perplexities.append(perplexity)
                 except Exception as e:
