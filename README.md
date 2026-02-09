@@ -80,6 +80,7 @@ pip install torch torchvision torchaudio
 ```bash
 cd ..
 conda create --name medgemmaenv python=3.10
+conda activate medgemmaenv
 pip install -r requirements_medgemma.txt
 # 1. Accept Terms to get access to medgemma
 # 2. Create huggingface token with "Read access to contents of all public gated repos you can access" enabled
