@@ -17,15 +17,21 @@ from src.radvlm.utils.evaluation_utils import compute_metrics
 class DeepSeekVL2Evaluator:
     """Unified evaluator class for DeepSeek-VL2 models (base and pretrained)"""
     
-    def __init__(self, model_path, base_model_path="deepseek-ai/deepseek-vl2-small", device='cuda' if torch.cuda.is_available() else 'cpu'):
+    def __init__(self, model_path, base_model_path="deepseek-ai/deepseek-vl2-small", device='cuda' if torch.cuda.is_available() else 'cpu', strategy="greedy", temperature=0.7, top_p=0.9):
         """
         Initialize evaluator for DeepSeek-VL2 language model
         
         Args:
             model_path: Path to model (can be base model or fine-tuned model)
             base_model_path: Path to base pretrained model for processor/tokenizer
+            strategy: Generation strategy ("greedy" or "sampling")
+            temperature: Sampling temperature (only used if strategy is "sampling")
+            top_p: Top-p sampling parameter (only used if strategy is "sampling")
         """
         self.device = device
+        self.strategy = strategy
+        self.temperature = temperature
+        self.top_p = top_p
         print(f"Loading model from {model_path} onto {self.device}...", flush=True)
         
         # Load model
@@ -57,15 +63,13 @@ class DeepSeekVL2Evaluator:
         self.model.eval()
         print("Model loaded and set to evaluation mode.", flush=True)
     
-    def generate_report(self, images, max_new_tokens=256, temperature=0.7, top_p=0.9):
+    def generate_report(self, images, max_new_tokens=256):
         """
         Generate radiology report given image paths
         
         Args:
             images: List of image file paths
             max_new_tokens: Maximum number of tokens to generate
-            temperature: Sampling temperature
-            top_p: Top-p sampling parameter
         """
         conversation = [
             {
@@ -92,19 +96,37 @@ class DeepSeekVL2Evaluator:
 
         # Generate report
         with torch.no_grad():
-            outputs = self.model.language.generate(
-                inputs_embeds=inputs_embeds,
-                attention_mask=prepare_inputs.attention_mask,
-                pad_token_id=self.tokenizer.eos_token_id,
-                bos_token_id=self.tokenizer.bos_token_id,
-                eos_token_id=self.tokenizer.eos_token_id,
-                max_new_tokens=512,
-                do_sample=False,
-                use_cache=True,
-                repetition_penalty=1.4,
-                no_repeat_ngram_size=4,
-                length_penalty=1.0
-            )
+            if self.strategy == "greedy":
+                outputs = self.model.language.generate(
+                    inputs_embeds=inputs_embeds,
+                    attention_mask=prepare_inputs.attention_mask,
+                    pad_token_id=self.tokenizer.eos_token_id,
+                    bos_token_id=self.tokenizer.bos_token_id,
+                    eos_token_id=self.tokenizer.eos_token_id,
+                    max_new_tokens=max_new_tokens,
+                    do_sample=False,
+                    use_cache=True,
+                    repetition_penalty=1.4,
+                    no_repeat_ngram_size=4,
+                    length_penalty=1.0
+                )
+            elif self.strategy == "sampling":
+                outputs = self.model.language.generate(
+                    inputs_embeds=inputs_embeds,
+                    attention_mask=prepare_inputs.attention_mask,
+                    pad_token_id=self.tokenizer.eos_token_id,
+                    bos_token_id=self.tokenizer.bos_token_id,
+                    eos_token_id=self.tokenizer.eos_token_id,
+                    max_new_tokens=max_new_tokens,
+                    do_sample=True,
+                    temperature=self.temperature,
+                    top_p=self.top_p,
+                    repetition_penalty=1.4,
+                    no_repeat_ngram_size=4,
+                    length_penalty=1.0
+                )
+            else:
+                raise ValueError(f"Unsupported generation strategy: {self.strategy}")
         
         generated_report = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
         return generated_report
