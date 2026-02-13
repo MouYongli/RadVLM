@@ -87,7 +87,7 @@ def compute_metrics(generated_reports, ground_truth_reports, losses=None, perple
     # Compute RadGraph scores in batches to avoid OOM
     print("Computing RadGraph scores...", flush=True)
     try:          
-        f1radgraph = F1RadGraph(reward_level="all", model_type="radgraph-xl")
+        f1radgraph = F1RadGraph(reward_level="all", model_type="radgraph-xl", model_cache_dir="/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/.cache/radgraph/0.1.2")
         
         # Process in batches to avoid OOM
         batch_size = 16
