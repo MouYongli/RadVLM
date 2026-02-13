@@ -61,8 +61,8 @@ rm -rf DeepSeek-VL2
 cp requirements.deepseek.txt deepseek/requirements.txt
 #  Update pyproject.toml in DeepSeek-VL2 folder
 cp pyproject.deepseek.toml deepseek/pyproject.toml
-# Update modeling_deepseek_vl2_v2.py in DeepSeek-VL2 folder
-cp modeling_deepseek_vl2_v2.deepseek.py deepseek/deepseek_vl2/models/modeling_deepseek_vl2_v2.py
+# Update modeling_deepseek_vl_v2.py in DeepSeek-VL2 folder
+cp modeling_deepseek_vl_v2.deepseek.py deepseek/deepseek_vl2/models/modeling_deepseek_vl_v2.py
 # Install dependencies and install the deepseek-vl2 package
 cd deepseek
 # Create a new conda environment for DeepSeek-VL2
@@ -115,6 +115,11 @@ pip install -e .
 4. RadGraph
 
 Download `radgraph-xl.tar.gz` from the [RRG_scorers repository](https://huggingface.co/StanfordAIMI/RRG_scorers/tree/main) and place it in your `.cache` directory. Ensure the file name and directory structure remain unchanged.
+(Optional) When using Determined, update the RadGraph codebase to enable running experiments within Determined.
+```bash
+cd $PROJECT_ROOT/baselines
+cp radgraph.py path/to/your/deepseekenv/lib/python3.10/site-packages/radgraph/radgraph.py
+```
 
 ## 3. Configuration
 

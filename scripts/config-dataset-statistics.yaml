@@ -1,0 +1,33 @@
+bind_mounts:
+  - container_path: /pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport
+    host_path: /pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport
+    propagation: rprivate
+    read_only: false
+  - container_path: /pfss/mlde/mlde_ext
+    host_path: /pfss/mlde/mlde_ext
+    propagation: rprivate
+    read_only: false
+  - container_path: /etc/hosts
+    host_path: /etc/hosts
+    propagation: rprivate
+    read_only: true
+debug: false
+description: Dataset-Statistics
+entrypoint: bash /pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/scripts/dataset-statistics-determined.sh
+environment:
+  add_capabilities:
+    - IPC_LOCK
+  force_pull_image: false
+  image:
+    cpu: determinedai/pytorch-ngc:0.35.0
+    cuda: determinedai/pytorch-ngc:0.35.0
+pbs: {}
+resources:
+  resource_pool: 42_Compute
+  slots_per_trial: 1
+slurm: {}
+searcher:
+  name: single
+  metric: dummy
+  max_length:
+    batches: 1
