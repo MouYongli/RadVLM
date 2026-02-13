@@ -101,6 +101,11 @@ pip install -e .
 4. RadGraph
 
 Download `radgraph-xl.tar.gz` from the [RRG_scorers repository](https://huggingface.co/StanfordAIMI/RRG_scorers/tree/main) and place it in your `.cache` directory. Ensure the file name and directory structure remain unchanged.
+(Optional) When using Determined, update the RadGraph codebase to enable running experiments within Determined.
+```bash
+cd $PROJECT_ROOT/baselines
+cp radgraph.py path/to/your/deepseekenv/lib/python3.10/site-packages/radgraph/radgraph.py
+```
 
 ## 3. Configuration
 
