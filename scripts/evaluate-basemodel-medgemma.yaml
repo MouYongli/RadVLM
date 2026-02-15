@@ -12,8 +12,8 @@ bind_mounts:
     propagation: rprivate
     read_only: true
 debug: false
-description: MG-Eval-Pre-Sampling
-entrypoint: bash /pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/scripts/evaluate-pretraining-sampling-medgemma-determined.sh
+description: MG-Eval-Base
+entrypoint: bash /pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/scripts/evaluate-basemodel-medgemma-determined.sh
 environment:
   add_capabilities:
     - IPC_LOCK
