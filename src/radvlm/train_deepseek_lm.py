@@ -1,3 +1,6 @@
+import os
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+
 import torch
 from transformers import AutoModelForCausalLM, default_data_collator, TrainingArguments, Trainer, EarlyStoppingCallback
 from peft import LoraConfig, get_peft_model, TaskType
@@ -75,7 +78,7 @@ def setup_model_with_lora(model_path: str):
     # Configure LoRA
     lora_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
-        r=32,  # LoRA rank (increase for more capacity: 32, 64)
+        r=8,  # LoRA rank (increase for more capacity: 32, 64)
         lora_alpha=32,  # LoRA scaling factor
         lora_dropout=0.05,
         bias="none",
@@ -108,13 +111,13 @@ def train_deepseek_vl2():
     import wandb
     wandb.init(
         project="deepseek-vl2-mimic-cxr",
-        name="lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct",
+        name="lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct",
         config={
             "model": "deepseek-vl2-small",
             "dataset": "mimic-cxr",
-            "lora_r": 32,
+            "lora_r": 8,
             "learning_rate": 1e-4,
-            "lr_scheduler_type": "linear",
+            "lr_scheduler_type": "cosine",
             "warmup_ratio": 0.05, # 5% warmup
             "epochs": 3,
             "data_fraction": 1.0,
@@ -151,7 +154,7 @@ def train_deepseek_vl2():
     )
     
     # Training arguments
-    output_dir = "../../../../../hpcwork/p0025751/results/pretraining/deepseek-vl2-mimic-cxr-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct"
+    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct"
     training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=3, 
@@ -174,10 +177,13 @@ def train_deepseek_vl2():
         fp16=False,
         bf16=True,
         optim="adamw_torch",
-        lr_scheduler_type="linear",
+        lr_scheduler_type="cosine",
         report_to="wandb",  # Options: "wandb", "tensorboard", "none"
-        run_name="deepseek-vl2-mimic-cxr-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct",  # Name for wandb run
+        run_name="deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct",  # Name for wandb run
         remove_unused_columns=False,
+        # Memory optimizations
+        dataloader_num_workers=0,  # KEY FIX
+        dataloader_pin_memory=False,  # KEY FIX
         # DeepSpeed config (disabled for single GPU)
         # deepspeed=os.path.join(here, "ds_config.json"),
     )
@@ -241,7 +247,7 @@ def train_deepseek_vl2():
     trainer.train(resume_from_checkpoint=checkpoint)
     
     # Save final model
-    trainer.save_model("../../../../../hpcwork/p0025751/results/pretraining/deepseek-vl2-mimic-cxr-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct-final")
+    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-final")
     
     print("Training complete!", flush=True)
 
