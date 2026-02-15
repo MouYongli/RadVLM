@@ -9,3 +9,4 @@ torch
 torchvision
 torchaudio
 huggingface_hub
+wandb

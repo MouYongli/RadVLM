@@ -1,3 +1,6 @@
+import os
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+
 import torch
 from transformers import default_data_collator, TrainingArguments, Trainer, EarlyStoppingCallback, AutoProcessor, AutoModelForImageTextToText
 from peft import LoraConfig, get_peft_model, TaskType
@@ -93,13 +96,13 @@ def train_medgemma_lm():
     import wandb
     wandb.init(
         project="medgemma-1.5-mimic-cxr",
-        name="poc-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct",
+        name="poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct",
         config={
             "model": "medgemma-1.5-4b-it",
             "dataset": "mimic-cxr",
             "lora_r": 32,
             "learning_rate": 1e-4,
-            "lr_scheduler_type": "linear",
+            "lr_scheduler_type": "cosine",
             "warmup_ratio": 0.05, # 5% warmup
             "epochs": 3,
             "data_fraction": 1.00,
@@ -141,7 +144,7 @@ def train_medgemma_lm():
     collate_fn = create_collate_fn_medgemma(processor)
     
     # Training arguments
-    output_dir = "../../../../../hpcwork/p0025751/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct"
+    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct"
     training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=3, 
@@ -163,9 +166,9 @@ def train_medgemma_lm():
         fp16=False,
         bf16=True,
         optim="adamw_torch",
-        lr_scheduler_type="linear",
+        lr_scheduler_type="cosine",
         report_to="wandb",  # Options: "wandb", "tensorboard", "none"
-        run_name="medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct",  # Name for wandb run
+        run_name="medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct",  # Name for wandb run
         remove_unused_columns=False,
         # DeepSpeed config (disabled for single GPU)
         # deepspeed=os.path.join(here, "ds_config.json"),
@@ -230,7 +233,7 @@ def train_medgemma_lm():
     trainer.train(resume_from_checkpoint=checkpoint)
     
     # Save final model
-    trainer.save_model("../../../../../hpcwork/p0025751/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct-final")
+    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-final")
     
     print("Training complete!", flush=True)
 
