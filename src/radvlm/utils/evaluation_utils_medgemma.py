@@ -15,15 +15,22 @@ from src.radvlm.utils.config import MEDGEMMA_BASE_MODEL_PATH
 class MedGemmaEvaluator:
     """Evaluator class for MedGemma models"""
     
-    def __init__(self, model_path, base_model_path = MEDGEMMA_BASE_MODEL_PATH, device='cuda' if torch.cuda.is_available() else 'cpu'):
+    def __init__(self, model_path, base_model_path = MEDGEMMA_BASE_MODEL_PATH, device='cuda' if torch.cuda.is_available() else 'cpu', strategy="greedy", temperature=0.7, top_p=0.9):
         """
         Initialize evaluator for MedGemma model
         
         Args:
             model_path: Path to MedGemma model
             base_model_path: Path to base MedGemma model for processor
+            device: Device to run evaluation on
+            strategy: Generation strategy ("greedy" or "sampling")
+            temperature: Sampling temperature (if strategy is "sampling")
+            top_p: Top-p sampling parameter (if strategy is "sampling")
         """
         self.device = device
+        self.strategy = strategy
+        self.temperature = temperature
+        self.top_p = top_p
         # Normalize path to resolve relative components
         model_path = os.path.abspath(model_path)
         print(f"Loading MedGemma model from {model_path} onto {self.device}...", flush=True)
@@ -46,15 +53,13 @@ class MedGemmaEvaluator:
         self.model.eval()
         print("MedGemma model loaded and set to evaluation mode.", flush=True)
 
-    def generate_report(self, images, max_new_tokens=256, temperature=0.7, top_p=0.9):
+    def generate_report(self, images, max_new_tokens=256):
         """
         Generate radiology report given image paths
         
         Args:
             images: List of image file paths
             max_new_tokens: Maximum number of tokens to generate
-            temperature: Sampling temperature
-            top_p: Top-p sampling parameter
         """
 
         messages = [
@@ -74,7 +79,23 @@ class MedGemmaEvaluator:
         input_len = inputs["input_ids"].shape[-1]
         print("Running inference...", flush=True)
         with torch.inference_mode():
-            generation = self.model.generate(**inputs, max_new_tokens=256, do_sample=False)
+            if self.strategy == "greedy":
+                generation = self.model.generate(
+                    **inputs,
+                    max_new_tokens=max_new_tokens,
+                    pad_token_id=self.tokenizer.eos_token_id
+                )
+            elif self.strategy == "sampling":
+                generation = self.model.generate(
+                    **inputs,
+                    max_new_tokens=max_new_tokens,
+                    temperature=self.temperature,
+                    top_p=self.top_p,
+                    do_sample=True,
+                    pad_token_id=self.tokenizer.eos_token_id
+                )
+            else:
+                raise ValueError(f"Unsupported generation strategy: {self.strategy}")
             generation = generation[0][input_len:]
         print("Inference complete.", flush=True)
         generated_report = self.processor.decode(generation, skip_special_tokens=True)
