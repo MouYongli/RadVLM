@@ -13,7 +13,7 @@ bind_mounts:
     read_only: true
 debug: false
 description: DS-Eval-Pre-Sampling
-entrypoint: bash /pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/scripts/evaluate-pretraining-determined.sh
+entrypoint: bash /pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/scripts/evaluate-pretraining-sampling-determined.sh
 environment:
   add_capabilities:
     - IPC_LOCK
