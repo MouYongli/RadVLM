@@ -10,3 +10,4 @@ torchvision
 torchaudio
 huggingface_hub
 wandb
+trl
