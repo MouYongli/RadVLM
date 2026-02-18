@@ -63,19 +63,58 @@ def setup_model_with_lora(model_path: str = MEDGEMMA_BASE_MODEL_PATH):
     # Configure LoRA
     lora_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
-        r=32,  # LoRA rank (increase for more capacity: 32, 64)
-        lora_alpha=32,  # LoRA scaling factor
+        r=32,
+        lora_alpha=32,
         lora_dropout=0.05,
         bias="none",
         target_modules=[
-            "q_proj",
-            "k_proj", 
-            "v_proj",
-            "o_proj",
-            "gate_proj",
-            "up_proj",
-            "down_proj"
-        ],  # Apply LoRA to attention and MLP layers
+            # Language model (Gemma-style - check your LM layer names)
+            "q_proj", "k_proj", "v_proj", "o_proj",
+            "gate_proj", "up_proj", "down_proj",
+            
+            # Vision encoder: last 6 layers (21-26)
+            "model.vision_tower.vision_model.encoder.layers.21.self_attn.q_proj",
+            "model.vision_tower.vision_model.encoder.layers.21.self_attn.k_proj",
+            "model.vision_tower.vision_model.encoder.layers.21.self_attn.v_proj",
+            "model.vision_tower.vision_model.encoder.layers.21.self_attn.out_proj",
+            "model.vision_tower.vision_model.encoder.layers.21.mlp.fc1",
+            "model.vision_tower.vision_model.encoder.layers.21.mlp.fc2",
+            
+            "model.vision_tower.vision_model.encoder.layers.22.self_attn.q_proj",
+            "model.vision_tower.vision_model.encoder.layers.22.self_attn.k_proj",
+            "model.vision_tower.vision_model.encoder.layers.22.self_attn.v_proj",
+            "model.vision_tower.vision_model.encoder.layers.22.self_attn.out_proj",
+            "model.vision_tower.vision_model.encoder.layers.22.mlp.fc1",
+            "model.vision_tower.vision_model.encoder.layers.22.mlp.fc2",
+            
+            "model.vision_tower.vision_model.encoder.layers.23.self_attn.q_proj",
+            "model.vision_tower.vision_model.encoder.layers.23.self_attn.k_proj",
+            "model.vision_tower.vision_model.encoder.layers.23.self_attn.v_proj",
+            "model.vision_tower.vision_model.encoder.layers.23.self_attn.out_proj",
+            "model.vision_tower.vision_model.encoder.layers.23.mlp.fc1",
+            "model.vision_tower.vision_model.encoder.layers.23.mlp.fc2",
+            
+            "model.vision_tower.vision_model.encoder.layers.24.self_attn.q_proj",
+            "model.vision_tower.vision_model.encoder.layers.24.self_attn.k_proj",
+            "model.vision_tower.vision_model.encoder.layers.24.self_attn.v_proj",
+            "model.vision_tower.vision_model.encoder.layers.24.self_attn.out_proj",
+            "model.vision_tower.vision_model.encoder.layers.24.mlp.fc1",
+            "model.vision_tower.vision_model.encoder.layers.24.mlp.fc2",
+            
+            "model.vision_tower.vision_model.encoder.layers.25.self_attn.q_proj",
+            "model.vision_tower.vision_model.encoder.layers.25.self_attn.k_proj",
+            "model.vision_tower.vision_model.encoder.layers.25.self_attn.v_proj",
+            "model.vision_tower.vision_model.encoder.layers.25.self_attn.out_proj",
+            "model.vision_tower.vision_model.encoder.layers.25.mlp.fc1",
+            "model.vision_tower.vision_model.encoder.layers.25.mlp.fc2",
+            
+            "model.vision_tower.vision_model.encoder.layers.26.self_attn.q_proj",
+            "model.vision_tower.vision_model.encoder.layers.26.self_attn.k_proj",
+            "model.vision_tower.vision_model.encoder.layers.26.self_attn.v_proj",
+            "model.vision_tower.vision_model.encoder.layers.26.self_attn.out_proj",
+            "model.vision_tower.vision_model.encoder.layers.26.mlp.fc1",
+            "model.vision_tower.vision_model.encoder.layers.26.mlp.fc2",
+        ],
         inference_mode=False,
     )
 
@@ -96,7 +135,7 @@ def train_medgemma_lm():
     import wandb
     wandb.init(
         project="medgemma-1.5-mimic-cxr",
-        name="poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct",
+        name="poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision",
         config={
             "model": "medgemma-1.5-4b-it",
             "dataset": "mimic-cxr",
@@ -144,7 +183,7 @@ def train_medgemma_lm():
     collate_fn = create_collate_fn_medgemma(processor)
     
     # Training arguments
-    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct"
+    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision"
     training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=3, 
@@ -168,7 +207,7 @@ def train_medgemma_lm():
         optim="adamw_torch",
         lr_scheduler_type="cosine",
         report_to="wandb",  # Options: "wandb", "tensorboard", "none"
-        run_name="medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct",  # Name for wandb run
+        run_name="medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision",  # Name for wandb run
         remove_unused_columns=False,
         # DeepSpeed config (disabled for single GPU)
         # deepspeed=os.path.join(here, "ds_config.json"),
@@ -233,7 +272,7 @@ def train_medgemma_lm():
     trainer.train(resume_from_checkpoint=checkpoint)
     
     # Save final model
-    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-final")
+    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final")
     
     print("Training complete!", flush=True)
 
