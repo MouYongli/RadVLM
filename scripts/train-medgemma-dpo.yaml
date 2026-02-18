@@ -1,0 +1,38 @@
+bind_mounts:
+  - container_path: /pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport
+    host_path: /pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport
+    propagation: rprivate
+    read_only: false
+  - container_path: /pfss/mlde/mlde_ext
+    host_path: /pfss/mlde/mlde_ext
+    propagation: rprivate
+    read_only: false
+  - container_path: /etc/hosts
+    host_path: /etc/hosts
+    propagation: rprivate
+    read_only: true
+debug: false
+description: MG-DPO
+entrypoint: bash /pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/scripts/train-medgemma-dpo-determined.sh
+environment:
+  add_capabilities:
+    - IPC_LOCK
+  force_pull_image: false
+  image:
+    cpu: determinedai/pytorch-ngc:0.35.0
+    cuda: determinedai/pytorch-ngc:0.35.0
+  environment_variables:
+    - HF_HOME=/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/.cache/huggingface
+    - TRANSFORMERS_CACHE=/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/.cache/transformers
+    - HF_HUB_CACHE=/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/.cache/huggingface/hub
+    - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+pbs: {}
+resources:
+  resource_pool: 42_Compute
+  slots_per_trial: 1
+slurm: {}
+searcher:
+  name: single
+  metric: eval_loss
+  max_length:
+    epochs: 3
