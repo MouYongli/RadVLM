@@ -78,19 +78,49 @@ def setup_model_with_lora(model_path: str):
     # Configure LoRA
     lora_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
-        r=8,  # LoRA rank (increase for more capacity: 32, 64)
-        lora_alpha=32,  # LoRA scaling factor
+        r=8,
+        lora_alpha=32,
         lora_dropout=0.05,
         bias="none",
         target_modules=[
-            "q_proj",
-            "k_proj", 
-            "v_proj",
-            "o_proj",
-            "gate_proj",
-            "up_proj",
-            "down_proj"
-        ],  # Apply LoRA to attention and MLP layers
+            # Language model
+            "q_proj", "k_proj", "v_proj", "o_proj",
+            "gate_proj", "up_proj", "down_proj",
+            
+            # Vision encoder (last 6 blocks + pooler)
+            "vision.blocks.21.attn.qkv",
+            "vision.blocks.21.attn.proj",
+            "vision.blocks.22.attn.qkv",
+            "vision.blocks.22.attn.proj",
+            "vision.blocks.23.attn.qkv",
+            "vision.blocks.23.attn.proj",
+            "vision.blocks.24.attn.qkv",
+            "vision.blocks.24.attn.proj",
+            "vision.blocks.25.attn.qkv",
+            "vision.blocks.25.attn.proj",
+            "vision.blocks.26.attn.qkv",
+            "vision.blocks.26.attn.proj",
+            
+            "vision.blocks.21.mlp.fc1",
+            "vision.blocks.21.mlp.fc2",
+            "vision.blocks.22.mlp.fc1",
+            "vision.blocks.22.mlp.fc2",
+            "vision.blocks.23.mlp.fc1",
+            "vision.blocks.23.mlp.fc2",
+            "vision.blocks.24.mlp.fc1",
+            "vision.blocks.24.mlp.fc2",
+            "vision.blocks.25.mlp.fc1",
+            "vision.blocks.25.mlp.fc2",
+            "vision.blocks.26.mlp.fc1",
+            "vision.blocks.26.mlp.fc2",
+            
+            # Attention pooler
+            "vision.attn_pool.q",
+            "vision.attn_pool.kv",
+            "vision.attn_pool.proj",
+            "vision.attn_pool.mlp.fc1",
+            "vision.attn_pool.mlp.fc2",
+        ],
         inference_mode=False,
     )
 
@@ -111,7 +141,7 @@ def train_deepseek_vl2():
     import wandb
     wandb.init(
         project="deepseek-vl2-mimic-cxr",
-        name="lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct",
+        name="lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision",
         config={
             "model": "deepseek-vl2-small",
             "dataset": "mimic-cxr",
@@ -154,7 +184,7 @@ def train_deepseek_vl2():
     )
     
     # Training arguments
-    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct"
+    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision"
     training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=3, 
@@ -179,7 +209,7 @@ def train_deepseek_vl2():
         optim="adamw_torch",
         lr_scheduler_type="cosine",
         report_to="wandb",  # Options: "wandb", "tensorboard", "none"
-        run_name="deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct",  # Name for wandb run
+        run_name="deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision",  # Name for wandb run
         remove_unused_columns=False,
         # Memory optimizations
         dataloader_num_workers=0,  # KEY FIX
@@ -247,7 +277,7 @@ def train_deepseek_vl2():
     trainer.train(resume_from_checkpoint=checkpoint)
     
     # Save final model
-    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-final")
+    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final")
     
     print("Training complete!", flush=True)
 
