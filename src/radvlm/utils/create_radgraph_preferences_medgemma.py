@@ -8,6 +8,10 @@ from rouge_score import rouge_scorer
 from radgraph import F1RadGraph
 import nltk
 from peft import PeftModel
+import json
+
+import sys
+sys.path.append("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM")
 
 from src.radvlm.utils.evaluation_utils import compute_metrics
 from src.radvlm.utils.config import MEDGEMMA_BASE_MODEL_PATH
@@ -33,8 +37,9 @@ def create_radgraph_preferences_medgemma(preference_dataset_path, output_path):
         
         f1radgraph = F1RadGraph(reward_level="all", model_type="radgraph-xl", model_cache_dir="/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/.cache/radgraph/0.1.2")
         _, reward_list, _, _ = f1radgraph(hyps=[report_1, report_2], refs=[ground_truth_report, ground_truth_report])
+        # print(reward_list)
         
-        if reward_list[0][2] > reward_list[1][2]:  # Compare complete F1 scores
+        if reward_list[2][0] > reward_list[2][1]:  # Compare complete F1 scores
             preferences.append({
                 "image_paths": item['image_paths'],
                 "report_1": report_1,
@@ -44,17 +49,17 @@ def create_radgraph_preferences_medgemma(preference_dataset_path, output_path):
                 "radgraph_scores": {
                     "report_1": {
                         "simple": reward_list[0][0],
-                        "partial": reward_list[0][1],
-                        "complete": reward_list[0][2],
+                        "partial": reward_list[1][0],
+                        "complete": reward_list[2][0],
                     },
                     "report_2": {
-                        "simple": reward_list[1][0],
+                        "simple": reward_list[0][1],
                         "partial": reward_list[1][1],
-                        "complete": reward_list[1][2],
+                        "complete": reward_list[2][1],
                     }
                 }
             })
-        elif reward_list[0][2] < reward_list[1][2]:
+        elif reward_list[2][0] < reward_list[2][1]:
             preferences.append({
                 "image_paths": item['image_paths'],
                 "report_1": report_1,
@@ -64,13 +69,13 @@ def create_radgraph_preferences_medgemma(preference_dataset_path, output_path):
                 "radgraph_scores": {
                     "report_1": {
                         "simple": reward_list[0][0],
-                        "partial": reward_list[0][1],
-                        "complete": reward_list[0][2],
+                        "partial": reward_list[1][0],
+                        "complete": reward_list[2][0],
                     },
                     "report_2": {
-                        "simple": reward_list[1][0],
+                        "simple": reward_list[0][1],
                         "partial": reward_list[1][1],
-                        "complete": reward_list[1][2],
+                        "complete": reward_list[2][1],
                     }
                 }
             })
@@ -84,13 +89,13 @@ def create_radgraph_preferences_medgemma(preference_dataset_path, output_path):
                 "radgraph_scores": {
                     "report_1": {
                         "simple": reward_list[0][0],
-                        "partial": reward_list[0][1],
-                        "complete": reward_list[0][2],
+                        "partial": reward_list[1][0],
+                        "complete": reward_list[2][0],
                     },
                     "report_2": {
-                        "simple": reward_list[1][0],
+                        "simple": reward_list[0][1],
                         "partial": reward_list[1][1],
-                        "complete": reward_list[1][2],
+                        "complete": reward_list[2][1],
                     }
                 }
             })

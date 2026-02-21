@@ -30,7 +30,7 @@ def load_dataset() -> list:
 
                     # Check if the corresponding image directory exists
                     if not os.path.exists(os.path.join(root, file.replace('.txt', ''))):
-                        print(f"Image directory for {file} does not exist.", flush=True)
+                        print(f"Image directory for {file} does not exist. Full path: {root}", flush=True)
                         continue # If no images exist for this report, skip this datapoint
                     else:
                         image_path = os.path.abspath(os.path.join(root, file.replace('.txt', ''))).replace("raw", "processed/2048")
@@ -58,7 +58,7 @@ def load_preference_dataset() -> list:
     # Assume the dataset is stored in a json file with preference pairs
     
     here = os.path.dirname(os.path.abspath(__file__))
-    dataset_path = os.path.join(here, "preference_data.json")  # TODO: Adjust path as needed
+    dataset_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/medgemma_radgraph_preferences.json"
 
     try:
         with open(dataset_path, 'r') as f:
