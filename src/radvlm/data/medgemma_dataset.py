@@ -184,12 +184,12 @@ class RadVLMDatasetMedGemma(Dataset):
             result = {
                 "images": pil_images,
                 "messages": messages,
+                "image_paths": valid_images
             }
             
             # Add ground truth report for evaluation metrics
             if self.mode == 'eval':
                 result["study_id"] = study_id
-                # result["images"] = valid_images
                 result["report"] = report
             
             return result
@@ -311,6 +311,7 @@ def create_collate_fn_medgemma(processor):
         batch["labels"] = labels
 
         batch["images"] = images
+        batch["image_paths"] = [item['image_paths'] for item in examples]
 
         # Add evaluation-specific fields if present
         if 'study_id' in examples[0]:

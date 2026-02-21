@@ -121,6 +121,7 @@ class MedGemmaReportPairGenerator:
         generated_reports_a = []
         generated_reports_b = []
         ground_truth_reports = []
+        image_paths_batch = []
 
         sample_count = 0
         
@@ -132,6 +133,8 @@ class MedGemmaReportPairGenerator:
                 
                 study_id = batch['study_id'][i]
                 images = batch['images'][i] if batch['images'][i] is not None else None
+                image_paths = batch.get('image_paths', [[]])[i]
+                image_paths_batch.append(image_paths)
                 gt_report = batch.get('report', [None])[i]
                 
                 try:
@@ -168,6 +171,7 @@ class MedGemmaReportPairGenerator:
 
         results = {
             'study_ids': study_ids,
+            'image_paths': image_paths_batch,
             'generated_reports_a': generated_reports_a,
             'generated_reports_b': generated_reports_b,
         }
@@ -189,7 +193,7 @@ def generate_reports( max_samples=500):
     print("Generating report pairs using pre-trained MedGemma model...", flush=True)
     
     here = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(here, "../../../../../../hpcwork/p0025751/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct-final")
+    model_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final"
     
     print(f"Initializing report generator with model: {model_path}", flush=True)
     report_generator = MedGemmaReportPairGenerator(model_path=model_path)
@@ -233,7 +237,7 @@ def generate_reports( max_samples=500):
     print(f"\nGenerated {len(study_ids)} report pairs", flush=True)
 
     # Save reports to text file
-    output_dir = os.path.join(here, "../../results/dpo_dataset")
+    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset"
     os.makedirs(output_dir, exist_ok=True)
     
     output_file = os.path.join(output_dir, "medgemma-generated-report-pairs.txt")
@@ -250,10 +254,29 @@ def generate_reports( max_samples=500):
             if ground_truth_reports and idx < len(ground_truth_reports):
                 f.write("\nGround Truth:\n")
                 f.write(ground_truth_reports[idx] + "\n")
-            
-
+    
+    # Also save results as JSON for easier parsing later
+    json_output_file = os.path.join(output_dir, "medgemma-generated-report-pairs.json")
+    print(f"\nSaving reports to {json_output_file}", flush=True) 
+    if len(ground_truth_reports) != len(study_ids):
+        print("Warning: Number of ground truth reports does not match number of generated reports.", flush=True) 
+    # Convert to list of dictionaries format
+    json_data = []
+    for i in range(len(results['study_ids'])):
+        sample_dict = {
+            'study_id': results['study_ids'][i],
+            'image_paths': results['image_paths'][i],
+            'report_1': results['generated_reports_a'][i],
+            'report_2': results['generated_reports_b'][i]
+        }
+        if results.get('ground_truth_reports') and i < len(results['ground_truth_reports']):
+            sample_dict['ground_truth'] = results['ground_truth_reports'][i]
+        json_data.append(sample_dict)
+    
+    with open(json_output_file, 'w') as f:
+        json.dump(json_data, f, indent=4)
     print("\nReport pair generation complete!", flush=True)
-    return results
+    return json_data
 
 
 if __name__ == "__main__":
