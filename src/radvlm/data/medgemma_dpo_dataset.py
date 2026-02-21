@@ -1,4 +1,3 @@
-from torch.utils.data import Dataset
 import os
 import pandas as pd
 import random
@@ -8,7 +7,7 @@ import torch.nn.functional as F
 
 from src.radvlm.utils.config import DATA_PROCESSED_DIR
 
-class RadVLMDPODatasetMedGemma(Dataset):
+class RadVLMDPODatasetMedGemma:
     def __init__(self, data, processor, tokenizer, max_seq_length=3072, split=None):
         """
         Args:
@@ -21,19 +20,32 @@ class RadVLMDPODatasetMedGemma(Dataset):
         self.tokenizer = tokenizer
         self.max_seq_length = max_seq_length
         self.split = split
+        self.raw_data = data
+
+        self.raw_data = self._add_image_paths(self.raw_data)
         
-        # Filter data by split if needed
-        if split:
-            self.data = self._filter_data_by_split(data, split)
-        else:
-            self.data = data
-        # self.data = data
-            
-        # Remove invalid samples
-        self.data = self._validate_data(self.data)
+        # Remove invalid samples from the raw data
+        self.raw_data = self._validate_data(self.raw_data)
         
-        print(f"Initialized RadVLMDPODatasetMedgemma with {len(self.data)} samples", flush=True)
+        print(f"Initialized RadVLMDPODatasetMedGemma with {len(self.raw_data)} samples", flush=True)
     
+    def _add_image_paths(self, data):
+        """Add image paths to each sample based on the file field"""
+        data_corrected = []
+        for item in data:
+            image_paths = item.get("image_paths", [])
+            valid_images = []
+            
+            for img_path in image_paths:                
+                valid_images.append(os.path.join(DATA_PROCESSED_DIR, img_path))
+            
+            # Keep item if at least one image matches the split
+            if valid_images:
+                item_copy = item.copy()
+                item_copy["image_paths"] = valid_images
+                data_corrected.append(item_copy)
+        return data_corrected
+
     def _filter_data_by_split(self, data, split):
         """Filter data by split using local split file"""
         split_file = os.path.join(os.path.dirname(__file__), "preference-data-split.csv")
@@ -98,139 +110,84 @@ class RadVLMDPODatasetMedGemma(Dataset):
         print(f"Validated {len(valid_data)} out of {len(data)} samples", flush=True)
         return valid_data
     
-    def __len__(self):
-        return len(self.data)
+    def get_split_data(self, split: str) -> list[dict]:
+        filtered_data = self._filter_data_by_split(self.raw_data, split)
 
-    def __getitem__(self, idx):
-        """
-        Returns a dictionary with chosen and rejected responses
-        """
-        try:
-            item = self.data[idx]
-            image_paths = item["image_paths"]
-            
-            # Determine which is chosen vs rejected based on radiologist preference
+        result = []
+        for item in filtered_data:
             if item["radiologist_preference"] == "report_1":
-                chosen_report = item["report_1"]
+                chosen_report   = item["report_1"]
                 rejected_report = item["report_2"]
             else:
-                chosen_report = item["report_2"]
+                chosen_report   = item["report_2"]
                 rejected_report = item["report_1"]
-            
-            # Load PIL images (similar to deepseek's load_pil_images)
-            pil_images = [Image.open(img_path).convert('RGB') for img_path in image_paths]
-            
-            # Return dictionary with all needed info
-            return {
-                "chosen": chosen_report,
+
+            image_paths = item["image_paths"]
+
+            # Build the prompt-only messages (user turn with image placeholders).
+            # We apply the chat template with add_generation_prompt=True so the
+            # model knows to continue from the assistant turn.
+            pil_images = [Image.open(p).convert("RGB") for p in image_paths]
+            image_content = [{"type": "image", "image": img} for img in pil_images]
+            text_content  = [{"type": "text",  "text": "Generate a radiology report for these X-rays."}]
+
+            prompt_messages = [
+                {"role": "user", "content": image_content + text_content},
+            ]
+            prompt_text = self.processor.apply_chat_template(
+                prompt_messages,
+                add_generation_prompt=True,
+                tokenize=False,
+            ).strip()
+
+            pil_images  = [Image.open(p).convert("RGB") for p in image_paths]
+
+            result.append({
+                "prompt":   prompt_text,
+                # Completions are plain text — DPOTrainer tokenises them separately
+                # from the prompt and does NOT pass images through them again.
+                "chosen":   chosen_report,
                 "rejected": rejected_report,
-                "images": pil_images,
-                "image_paths": image_paths,
-            }
-            
-        except Exception as e:
-            print(f"Error processing item {idx}: {str(e)}", flush=True)
-            return None
+                # Store paths as strings; MedGemmaDPOTrainer.process_row loads them.
+                "images":   pil_images,
+            })
 
-def dpo_collate_fn(batch, processor, tokenizer, max_seq_length=3072):
-    """
-    Custom collator for DPO training with MedGemma
-    
-    Args:
-        batch: List of samples from dataset
-        processor: MedGemma processor for image and text processing.
-        tokenizer: Tokenizer for text tokenization.
-        max_seq_length: Maximum sequence length
-    
-    Returns:
-        Dictionary with chosen and rejected inputs properly formatted for DPO
-    """
+        return result
 
-    # Filter out None values from failed samples
-    batch = [item for item in batch if item is not None]
-    
-    if len(batch) == 0:
+def dpo_collate_fn(batch, processor, max_seq_length=3072):
+    batch = [b for b in batch if b is not None]
+    if not batch:
         return None
-    
-    # Process chosen responses
-    chosen_conversations = []
-    chosen_images_list = []
-    
-    for item in batch:
-        content = []
-        for image in item["images"]:
-            content.append({"type": "image", "image": image})
-        content.append({"type": "text", "text": "Generate a radiology report for these X-rays."})
-        
-        messages = [
-            {
-                "role": "user",
-                "content": content
-            },
-            {
-                "role": "assistant",
-                "content": [{"type": "text", "text": item["chosen"]}]
-            }
-        ]
 
-        messages_chat_template = processor.apply_chat_template(messages, add_generation_prompt=False, tokenize=False).strip()
+    print(f"Batch: ", batch)
+    chosen_texts   = [b["chosen"]   for b in batch]
+    rejected_texts = [b["rejected"] for b in batch]
 
-        chosen_conversations.append(messages_chat_template)
-        chosen_images_list.append(item["images"])
+    # Reload PIL images from paths (fast — already on local disk)
+    chosen_images_list   = [[Image.open(p).convert("RGB") for p in b["images"]] for b in batch]
+    rejected_images_list = [[Image.open(p).convert("RGB") for p in b["images"]] for b in batch]
 
-    # Process rejected responses
-    rejected_conversations = []
-    rejected_images_list = []
-    
-    for item in batch:
-        content = []
-        for image in item["images"]:
-            content.append({"type": "image", "image": image})
-        content.append({"type": "text", "text": "Generate a radiology report for these X-rays."})
-        
-        messages = [
-            {
-                "role": "user",
-                "content": content
-            },
-            {
-                "role": "assistant",
-                "content": [{"type": "text", "text": item["rejected"]}]
-            }
-        ]
+    def encode(texts, images_list):
+        enc = processor(
+            text=texts,
+            images=images_list,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+            max_length=max_seq_length,
+        )
+        if enc.get("pixel_values") is not None:
+            enc["pixel_values"] = enc["pixel_values"].to(dtype=torch.bfloat16)
+        return enc
 
-        messages_chat_template = processor.apply_chat_template(messages, add_generation_prompt=False, tokenize=False).strip()
-        rejected_conversations.append(messages_chat_template)
-        rejected_images_list.append(item["images"])
+    chosen_enc   = encode(chosen_texts,   chosen_images_list)
+    rejected_enc = encode(rejected_texts, rejected_images_list)
 
-    # Tokenize chosen responses
-    chosen_inputs = processor(
-        text=chosen_conversations,
-        images=chosen_images_list,
-        return_tensors="pt",
-        padding=True
-    )
-    # Tokenize rejected responses
-    rejected_inputs = processor(
-        text=rejected_conversations,
-        images=rejected_images_list,
-        return_tensors="pt",
-        padding=True
-    )
-
-    # Convert to bfloat16 for pixel values
-    if hasattr(chosen_inputs, 'pixel_values') and chosen_inputs.pixel_values is not None:
-        chosen_inputs.pixel_values = chosen_inputs.pixel_values.to(dtype=torch.bfloat16)
-    if hasattr(rejected_inputs, 'pixel_values') and rejected_inputs.pixel_values is not None:
-        rejected_inputs.pixel_values = rejected_inputs.pixel_values.to(dtype=torch.bfloat16)
-    
-
-    # Return in format expected by DPOTrainer
     return {
-        "input_ids_chosen": chosen_inputs["input_ids"],
-        "attention_mask_chosen": chosen_inputs["attention_mask"],
-        "pixel_values_chosen": chosen_inputs.get("pixel_values"),
-        "input_ids_rejected": rejected_inputs["input_ids"],
-        "attention_mask_rejected": rejected_inputs["attention_mask"],
-        "pixel_values_rejected": rejected_inputs.get("pixel_values"),
+        "input_ids_chosen":        chosen_enc["input_ids"],
+        "attention_mask_chosen":   chosen_enc["attention_mask"],
+        "pixel_values_chosen":     chosen_enc.get("pixel_values"),
+        "input_ids_rejected":      rejected_enc["input_ids"],
+        "attention_mask_rejected": rejected_enc["attention_mask"],
+        "pixel_values_rejected":   rejected_enc.get("pixel_values"),
     }

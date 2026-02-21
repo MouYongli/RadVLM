@@ -1,166 +1,499 @@
-import torch
-from transformers import default_data_collator, TrainingArguments, Trainer, EarlyStoppingCallback, AutoProcessor, AutoModelForImageTextToText
-from peft import LoraConfig, get_peft_model, TaskType, PeftModel
-from trl import DPOTrainer, DPOConfig
-from functools import partial
-import json
-import os
-import sys
-sys.path.append('/home/ug301051/jupyterlab/RadVLM')
+"""
+DPO Fine-tuning for MedGemma — variable image count per sample.
 
-here = os.path.dirname(os.path.abspath(__file__))
+Processes one sample at a time and accumulates gradients manually,
+avoiding the pixel_values stacking issue in TRL's DPOTrainer.
+
+Usage:
+    python train_dpo_medgemma.py \
+        --model_path  ../../results/pretraining/medgemma-sft-final \
+        --output_dir  ../../results/dpo/medgemma-dpo-run1
+"""
+
+import os
+import math
+import argparse
+import logging
+import random
+from contextlib import contextmanager
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Optional
+
+import torch
+import torch.nn.functional as F
+from torch.cuda.amp import GradScaler, autocast
+from torch.optim import AdamW
+from transformers import (
+    AutoProcessor,
+    AutoModelForImageTextToText,
+    get_cosine_schedule_with_warmup,
+)
+from peft import LoraConfig, PeftModel, TaskType, get_peft_model
+from tqdm import tqdm
 
 from src.radvlm.data.build_dataset import load_preference_dataset
-
-from src.radvlm.data.medgemma_dpo_dataset import RadVLMDPODatasetMedGemma, dpo_collate_fn
+from src.radvlm.data.medgemma_dpo_dataset import RadVLMDPODatasetMedGemma
 from src.radvlm.utils.config import MEDGEMMA_BASE_MODEL_PATH
 
-def setup_model_with_lora(model_path: str = MEDGEMMA_BASE_MODEL_PATH):
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+
+# ── Config ─────────────────────────────────────────────────────────────────────
+@dataclass
+class TrainingConfig:
+    # Paths
+    
+    model_path: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r16-lr1e-4-3epochs-final"
+    output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/medgemma-1.5-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1"
+
+    # Training
+    num_train_epochs:            int   = 3
+    gradient_accumulation_steps: int   = 4
+    learning_rate:               float = 5e-5
+    weight_decay:                float = 0.01
+    warmup_ratio:                float = 0.1
+    max_grad_norm:               float = 1.0
+    max_seq_length:              int   = 3072
+    beta:                        float = 0.1
+
+    # LoRA
+    lora_r:              int   = 16
+    lora_alpha:          int   = 32
+    lora_dropout:        float = 0.05
+    lora_target_modules: list  = field(default_factory=lambda: [
+        "q_proj", "k_proj", "v_proj", "o_proj",
+        "gate_proj", "up_proj", "down_proj",
+    ])
+
+    # Logging / checkpointing
+    logging_steps: int = 1
+    eval_steps:    int = 1
+    save_steps:    int = 2
+    eval_samples:  int = 64
+    seed:          int = 42
+
+    # W&B
+    wandb_project: str = "medgemma-1.5-mimic-cxr-dpo"
+    wandb_run:     str = "dpo-lora-r16-lr5e-5-beta0.1"
+
+
+def parse_args() -> TrainingConfig:
+    defaults = TrainingConfig()
+    p = argparse.ArgumentParser()
+    for f_name, f_val in vars(defaults).items():
+        p.add_argument(f"--{f_name}", type=type(f_val) if not isinstance(f_val, list) else None,
+                       default=f_val)
+    ns = p.parse_args()
+    return TrainingConfig(**{k: v for k, v in vars(ns).items()})
+
+
+# ── Model loading ──────────────────────────────────────────────────────────────
+def setup_model(cfg: TrainingConfig) -> torch.nn.Module:
     """
-    Load DeepSeek-VL2 and apply LoRA
-    
-    Args:
-        model_path: HuggingFace model ID or local path
+    Load base MedGemma, freeze the vision encoder, then either resume an
+    existing LoRA checkpoint or attach fresh LoRA adapters.
     """
+    model_path = os.path.abspath(cfg.model_path)
+    logger.info(f"Loading base model from {MEDGEMMA_BASE_MODEL_PATH} ...")
 
-    print("Setting up model with LoRA...", flush=True)
-    device='cuda' if torch.cuda.is_available() else 'cpu'
-    
-    model_path = os.path.abspath(model_path)
-    print(f"Loading MedGemma model from {model_path} onto {device}...", flush=True)
-    
-    # Load base model first
-    base_model = AutoModelForImageTextToText.from_pretrained(MEDGEMMA_BASE_MODEL_PATH, local_files_only=True)
+    base_model = AutoModelForImageTextToText.from_pretrained(
+        MEDGEMMA_BASE_MODEL_PATH,
+        torch_dtype=torch.bfloat16,
+        device_map="auto",
+        local_files_only=True,
+    )
 
-    if os.path.exists(os.path.join(model_path, "adapter_config.json")):
-        # Then load LoRA adapters
-        model = PeftModel.from_pretrained(base_model, model_path)
-        model.to(device)
-    else:
-        model = AutoModelForImageTextToText.from_pretrained(model_path, local_files_only=True).to(device)
-
-    # processor = AutoProcessor.from_pretrained(model_path)
-
-    print("Model loaded.", flush=True)
-    
-    # Freeze vision encoder (we only want to adapt the language model)
-    for name, param in model.named_parameters():
-        if "vision_tower" in name or "visual" in name or "vision_model" in name:
+    # Freeze vision encoder
+    for name, param in base_model.named_parameters():
+        if any(k in name for k in ("vision_tower", "visual", "vision_model")):
             param.requires_grad = False
-            # print(f"Frozen: {name}")
-    
-    print("Vision encoder frozen.", flush=True)
-    
-    if not os.path.exists(os.path.join(model_path, "adapter_config.json")):
-        # Configure LoRA
-        lora_config = LoraConfig(
+    logger.info("Vision encoder frozen.")
+
+    is_lora_ckpt = os.path.exists(os.path.join(model_path, "adapter_config.json"))
+    if is_lora_ckpt:
+        logger.info(f"Resuming LoRA adapters from {model_path} ...")
+        model = PeftModel.from_pretrained(base_model, model_path, is_trainable=True)
+    else:
+        lora_cfg = LoraConfig(
             task_type=TaskType.CAUSAL_LM,
-            r=32,
-            lora_alpha=32,
-            lora_dropout=0.05,
+            r=cfg.lora_r,
+            lora_alpha=cfg.lora_alpha,
+            lora_dropout=cfg.lora_dropout,
             bias="none",
-            target_modules=[
-                # Language model
-                "q_proj", "k_proj", "v_proj", "o_proj",
-                "gate_proj", "up_proj", "down_proj",
-            ],
+            target_modules=cfg.lora_target_modules,
             inference_mode=False,
         )
+        model = get_peft_model(base_model, lora_cfg)
 
-        print("Applying LoRA...", flush=True)
-        
-        # Apply LoRA
-        model = get_peft_model(model, lora_config)
-        model.print_trainable_parameters()
-        
-        print("LoRA applied.", flush=True)
-    
     model.print_trainable_parameters()
-    
-    print("Model setup with LoRA complete.", flush=True)
     return model
 
-def train_dpo():
-    """Main DPO training function"""
-    
+
+# ── Encoding ───────────────────────────────────────────────────────────────────
+def encode_single(
+    processor,
+    prompt_text: str,
+    completion_text: str,
+    pil_images: list,
+    max_length: int,
+    device: torch.device,
+):
+    """
+    Tokenise `prompt + completion` for one sample with any number of images.
+
+    Prompt-masking strategy: tokenise the completion alone (no images) to get
+    its token count, then derive prompt_len = total_len - completion_len.
+    This avoids processing images twice.
+    """
+    images = pil_images if pil_images else None
+
+    full_enc = processor(
+        text=prompt_text + completion_text,
+        images=images,
+        return_tensors="pt",
+        truncation=True,
+        max_length=max_length,
+    )
+    full_enc = {k: v.to(device) for k, v in full_enc.items()}
+    if full_enc.get("pixel_values") is not None:
+        full_enc["pixel_values"] = full_enc["pixel_values"].to(dtype=torch.bfloat16)
+
+    # Tokenise only the completion (no images) to count its tokens.
+    # Subtract 1 to exclude the BOS token the processor prepends.
+    completion_enc = processor(
+        text=completion_text,
+        images=None,
+        return_tensors="pt",
+        truncation=True,
+        max_length=max_length,
+    )
+    completion_len = int(completion_enc["attention_mask"].sum().item()) - 1
+    total_len      = int(full_enc["attention_mask"].sum().item())
+    prompt_len     = total_len - completion_len
+
+    labels = full_enc["input_ids"].clone()
+    labels[0, :prompt_len] = -100   # mask prompt tokens from the loss
+
+    return full_enc, labels
+
+
+# ── Log-probability (sum over completion tokens) ──────────────────────────────
+def completion_log_prob(
+    model,
+    enc: dict,
+    labels: torch.Tensor,
+    use_autocast: bool = True,
+) -> torch.Tensor:
+    """
+    Return the *sum* of log-probs over non-masked completion tokens.
+
+    Using sum rather than mean avoids length bias: with mean log-prob,
+    DPO would implicitly favour shorter completions.
+    """
+    ctx = autocast(dtype=torch.bfloat16) if use_autocast else contextmanager(lambda: iter([None]))()
+    with ctx:
+        logits = model(
+            input_ids=enc["input_ids"],
+            attention_mask=enc["attention_mask"],
+            pixel_values=enc.get("pixel_values"),
+            return_dict=True,
+        ).logits  # (1, seq_len, vocab)
+
+    # Causal shift: logits[t] predicts token[t+1]
+    shift_logits = logits[:, :-1, :].contiguous()    # (1, L-1, V)
+    shift_labels = labels[:, 1:].contiguous()         # (1, L-1)
+
+    log_probs  = F.log_softmax(shift_logits.float(), dim=-1)
+    token_lp   = log_probs.gather(-1, shift_labels.clamp(min=0).unsqueeze(-1)).squeeze(-1)
+    comp_mask  = (shift_labels != -100).float()
+
+    return (token_lp * comp_mask).sum()   # scalar
+
+
+# ── Reference model context ────────────────────────────────────────────────────
+@contextmanager
+def reference_mode(model):
+    """
+    Disable LoRA adapters so the frozen base weights act as π_ref.
+    Eliminates the need for a second model copy in memory.
+    """
+    with torch.no_grad():
+        with model.disable_adapter():
+            yield
+
+
+# ── DPO loss ───────────────────────────────────────────────────────────────────
+def dpo_loss_single(
+    model,
+    enc_chosen,   lbl_chosen,
+    enc_rejected, lbl_rejected,
+    beta: float,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    DPO loss for one (chosen, rejected) pair.
+
+    Returns:
+        loss      — differentiable scalar for .backward()
+        log_ratio — detached scalar for accuracy / logging
+    """
+    # Policy forward (LoRA active, gradients flow)
+    log_pi_c = completion_log_prob(model, enc_chosen,   lbl_chosen)
+    log_pi_r = completion_log_prob(model, enc_rejected, lbl_rejected)
+
+    # Reference forward (LoRA disabled, no grad)
+    with reference_mode(model):
+        log_ref_c = completion_log_prob(model, enc_chosen,   lbl_chosen,   use_autocast=False)
+        log_ref_r = completion_log_prob(model, enc_rejected, lbl_rejected, use_autocast=False)
+
+    log_ratio = (log_pi_c - log_ref_c) - (log_pi_r - log_ref_r)
+    loss      = -F.logsigmoid(beta * log_ratio)
+    return loss, log_ratio.detach()
+
+
+# ── Checkpoint helpers ─────────────────────────────────────────────────────────
+def save_checkpoint(model, processor, optimizer, scheduler, scaler, step: int, out_dir: str):
+    ckpt_dir = Path(out_dir) / f"checkpoint-{step}"
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+    model.save_pretrained(ckpt_dir)
+    processor.save_pretrained(ckpt_dir)
+    torch.save({
+        "optimizer":   optimizer.state_dict(),
+        "scheduler":   scheduler.state_dict(),
+        "scaler":      scaler.state_dict(),
+        "global_step": step,
+    }, ckpt_dir / "optimizer.pt")
+    logger.info(f"Checkpoint saved → {ckpt_dir}")
+
+
+def find_latest_checkpoint(out_dir: str) -> Optional[Path]:
+    ckpts = sorted(
+        Path(out_dir).glob("checkpoint-*"),
+        key=lambda p: int(p.name.split("-")[-1]),
+    )
+    return ckpts[-1] if ckpts else None
+
+
+def load_checkpoint(optimizer, scheduler, scaler, ckpt_dir: Path) -> int:
+    opt_path = ckpt_dir / "optimizer.pt"
+    if not opt_path.exists():
+        logger.warning(f"No optimizer state in {ckpt_dir} — starting fresh.")
+        return 0
+    state = torch.load(opt_path, map_location="cpu")
+    optimizer.load_state_dict(state["optimizer"])
+    scheduler.load_state_dict(state["scheduler"])
+    scaler.load_state_dict(state["scaler"])
+    logger.info(f"Resumed from step {state['global_step']}")
+    return state["global_step"]
+
+
+# ── Best-model tracking ────────────────────────────────────────────────────────
+class BestModelTracker:
+    def __init__(self, out_dir: str, metric: str = "eval/loss", mode: str = "min"):
+        self.save_dir   = Path(out_dir) / "best_model"
+        self.metric     = metric
+        self.best       = float("inf") if mode == "min" else float("-inf")
+        self.is_better  = (lambda a, b: a < b) if mode == "min" else (lambda a, b: a > b)
+
+    def update(self, metrics: dict, model, processor) -> bool:
+        val = metrics.get(self.metric)
+        if val is None or not self.is_better(val, self.best):
+            return False
+        self.best = val
+        self.save_dir.mkdir(parents=True, exist_ok=True)
+        model.save_pretrained(self.save_dir)
+        processor.save_pretrained(self.save_dir)
+        logger.info(f"★ New best {self.metric}={val:.4f} → {self.save_dir}")
+        return True
+
+
+# ── Evaluation ────────────────────────────────────────────────────────────────
+@torch.no_grad()
+def evaluate(
+    model, processor, eval_records: list, beta: float,
+    max_seq_length: int, device: torch.device, max_samples: int,
+) -> dict:
+    model.eval()
+    records     = eval_records[:max_samples]
+    total_loss  = total_acc = total_ratio = 0.0
+
+    for rec in tqdm(records, desc="Eval", leave=False):
+        enc_c, lbl_c = encode_single(processor, rec["prompt"], rec["chosen"],
+                                     rec["images"], max_seq_length, device)
+        enc_r, lbl_r = encode_single(processor, rec["prompt"], rec["rejected"],
+                                     rec["images"], max_seq_length, device)
+        loss, log_ratio = dpo_loss_single(model, enc_c, lbl_c, enc_r, lbl_r, beta)
+
+        total_loss  += loss.item()
+        total_acc   += float(log_ratio.item() > 0)
+        total_ratio += log_ratio.item()
+
+    n = len(records)
+    model.train()
+    return {
+        "eval/loss":      total_loss  / n,
+        "eval/accuracy":  total_acc   / n,
+        "eval/log_ratio": total_ratio / n,
+    }
+
+
+# ── W&B reporter ───────────────────────────────────────────────────────────────
+def setup_reporter(cfg: TrainingConfig):
     import wandb
     wandb.init(
-        project="medgemma-1.5-mimic-cxr-dpo",
-        name="dpo-lora-r16-lr5e-5-beta0.1",
+        project=cfg.wandb_project,
+        name=cfg.wandb_run,
         config={
-            "model": "medgemma-1.5",
-            "dataset": "mimic-cxr-preference",
-            "method": "DPO",
-            "lora_r": 16,
-            "learning_rate": 5e-5,
-            "beta": 0.1,
-            "epochs": 1,
-            "max_seq_length": 3072
-        }
+            "model":          MEDGEMMA_BASE_MODEL_PATH,
+            "method":         "DPO",
+            "lora_r":         cfg.lora_r,
+            "lora_alpha":     cfg.lora_alpha,
+            "learning_rate":  cfg.learning_rate,
+            "beta":           cfg.beta,
+            "epochs":         cfg.num_train_epochs,
+            "max_seq_length": cfg.max_seq_length,
+        },
     )
-    
-    model_path = os.path.join(here, "../../results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r16-lr1e-4-3epochs-linear-5pctwarmup-3earlystop-10pct-final") 
-    # Load model with LoRA
-    model = setup_model_with_lora(model_path=model_path)
-    
-    # Load processor and tokenizer from base model (they don't change during training)
-    base_model_path = MEDGEMMA_BASE_MODEL_PATH
-    print(f"Loading processor and tokenizer from {base_model_path}...", flush=True)
-    processor: AutoProcessor = AutoProcessor.from_pretrained(base_model_path)
-    tokenizer = processor.tokenizer
-    
-    # Load DPO dataset
-    print("Loading DPO dataset...", flush=True)
+    return lambda metrics, step: wandb.log(metrics, step=step)
+
+
+# ── Main ───────────────────────────────────────────────────────────────────────
+def main():
+    cfg = parse_args()
+    torch.manual_seed(cfg.seed)
+    random.seed(cfg.seed)
+    Path(cfg.output_dir).mkdir(parents=True, exist_ok=True)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    log_metric   = setup_reporter(cfg)
+    best_tracker = BestModelTracker(cfg.output_dir)
+
+    # Model & processor
+    model     = setup_model(cfg)
+    processor = AutoProcessor.from_pretrained(MEDGEMMA_BASE_MODEL_PATH, local_files_only=True)
+    processor.tokenizer.padding_side = "right"
+
+    # Data
+    logger.info("Loading preference dataset ...")
     preference_data = load_preference_dataset()
-    train_dataset = RadVLMDPODatasetMedGemma(preference_data, processor, tokenizer, max_seq_length=3072, split="train")
-    val_dataset = RadVLMDPODatasetMedGemma(preference_data, processor, tokenizer, max_seq_length=3072, split="validate")
-    
-    # Create partial collate function with processor and tokenizer
-    collate_fn = partial(dpo_collate_fn, processor=processor, tokenizer=tokenizer, max_seq_length=3072)
-    
-    output_dir = "../results/dpo/medgemma-1.5-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1"
-    # Set up DPO trainer
-    training_args = DPOConfig(
-        output_dir=output_dir,
-        per_device_train_batch_size=4,
-        num_train_epochs=3,
-        logging_steps=10,
-        save_steps=100,
-        save_total_limit=2,
-        load_best_model_at_end=True,
-        eval_strategy="steps",
-        eval_steps=50,
-        report_to="wandb",
-        run_name="medgemma-dpo-lora-r16-lr5e-5-beta0.1",
-        remove_unused_columns=False,  # Important for custom collate_fn
-        beta=0.1,  # KL penalty coefficient for DPO
+    dataset_wrapper = RadVLMDPODatasetMedGemma(
+        preference_data, processor, processor.tokenizer,
+        max_seq_length=cfg.max_seq_length,
     )
-    
-    trainer = DPOTrainer(
-        model=model,
-        args=training_args,
-        train_dataset=train_dataset,
-        eval_dataset=val_dataset,  # Using same dataset for eval for simplicity; ideally should have a separate eval set
-        data_collator=collate_fn,
+    train_data = dataset_wrapper.get_split_data("train")
+    val_data   = dataset_wrapper.get_split_data("validate")
+    logger.info(f"Train: {len(train_data)} | Val: {len(val_data)}")
+
+    # Optimiser & scheduler
+    optimizer = AdamW(
+        filter(lambda p: p.requires_grad, model.parameters()),
+        lr=cfg.learning_rate,
+        weight_decay=cfg.weight_decay,
     )
+    acc             = cfg.gradient_accumulation_steps
+    steps_per_epoch = math.ceil(len(train_data) / acc)
+    total_steps     = steps_per_epoch * cfg.num_train_epochs
+    warmup_steps    = int(total_steps * cfg.warmup_ratio)
+    scheduler       = get_cosine_schedule_with_warmup(optimizer, warmup_steps, total_steps)
+    scaler          = GradScaler(enabled=(device.type == "cuda"))
 
-    # Check for checkpoints
-    checkpoint = None
-    if os.path.isdir(output_dir):
-        checkpoints = [os.path.join(output_dir, d) for d in os.listdir(output_dir) 
-                      if d.startswith("checkpoint")]
-        if checkpoints:
-            checkpoint = max(checkpoints, key=os.path.getctime)
-            print(f"Found checkpoint: {checkpoint}. Resuming training...", flush=True)
-    
-    print("Starting DPO training...", flush=True)
-    trainer.train(resume_from_checkpoint=checkpoint)
+    # Resume from checkpoint if one exists
+    global_step = 0
+    resume_ckpt = find_latest_checkpoint(cfg.output_dir)
+    if resume_ckpt:
+        global_step = load_checkpoint(optimizer, scheduler, scaler, resume_ckpt)
+    samples_to_skip = global_step * acc   # re-skip already-trained samples
 
-    final_output_dir = "../results/dpo/medgemma-1.5-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-final"
-    trainer.save_model(final_output_dir)
-    print(f"Final model saved to {final_output_dir}", flush=True)
-    print("DPO training complete!", flush=True)
+    # Training loop
+    model.train()
+    optimizer.zero_grad()
+    sample_idx = 0
+    accum_loss = accum_acc = 0.0
+
+    logger.info("Starting DPO training ...")
+    for epoch in range(1, cfg.num_train_epochs + 1):
+        random.shuffle(train_data)
+
+        for rec in tqdm(train_data, desc=f"Epoch {epoch}"):
+
+            # Skip samples already covered before the checkpoint
+            if samples_to_skip > 0:
+                samples_to_skip -= 1
+                continue
+
+            enc_c, lbl_c = encode_single(
+                processor, rec["prompt"], rec["chosen"],
+                rec["images"], cfg.max_seq_length, device,
+            )
+            enc_r, lbl_r = encode_single(
+                processor, rec["prompt"], rec["rejected"],
+                rec["images"], cfg.max_seq_length, device,
+            )
+
+            loss, log_ratio = dpo_loss_single(
+                model, enc_c, lbl_c, enc_r, lbl_r, cfg.beta,
+            )
+
+            scaler.scale(loss / acc).backward()
+            accum_loss += loss.item() / acc
+            accum_acc  += float(log_ratio.item() > 0) / acc
+            sample_idx += 1
+
+            if sample_idx % acc != 0:
+                continue
+
+            # ── Optimiser step ────────────────────────────────────────────────
+            scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.max_grad_norm)
+            scaler.step(optimizer)
+            scaler.update()
+            scheduler.step()
+            optimizer.zero_grad()
+            global_step += 1
+
+            if global_step % cfg.logging_steps == 0:
+                lr = scheduler.get_last_lr()[0]
+                logger.info(
+                    f"step {global_step:5d} | epoch {epoch} "
+                    f"| loss {accum_loss:.4f} | acc {accum_acc:.3f} | lr {lr:.2e}"
+                )
+                log_metric({
+                    "train/loss":     accum_loss,
+                    "train/accuracy": accum_acc,
+                    "train/lr":       lr,
+                    "train/epoch":    epoch,
+                }, global_step)
+
+            accum_loss = accum_acc = 0.0
+
+            if val_data and global_step % cfg.eval_steps == 0:
+                eval_metrics = evaluate(
+                    model, processor, val_data,
+                    cfg.beta, cfg.max_seq_length, device, cfg.eval_samples,
+                )
+                logger.info("  eval | " + " | ".join(
+                    f"{k.split('/')[-1]}: {v:.4f}" for k, v in eval_metrics.items()
+                ))
+                log_metric(eval_metrics, global_step)
+                best_tracker.update(eval_metrics, model, processor)
+
+            if global_step % cfg.save_steps == 0:
+                save_checkpoint(model, processor, optimizer, scheduler,
+                                scaler, global_step, cfg.output_dir)
+
+    # Final save
+    final_dir = Path(cfg.output_dir) / "final"
+    model.save_pretrained(final_dir)
+    processor.save_pretrained(final_dir)
+    logger.info(f"Training complete. Final model → {final_dir}")
+
+    import wandb
     wandb.finish()
 
+
 if __name__ == "__main__":
-    train_dpo()
+    main()
