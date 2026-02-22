@@ -78,7 +78,7 @@ def setup_model_with_lora(model_path: str):
     # Configure LoRA
     lora_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
-        r=8,
+        r=16,
         lora_alpha=32,
         lora_dropout=0.05,
         bias="none",
@@ -120,14 +120,25 @@ def setup_model_with_lora(model_path: str):
             "vision.attn_pool.proj",
             "vision.attn_pool.mlp.fc1",
             "vision.attn_pool.mlp.fc2",
+
+            # Projector
+            "projector.layers.0.weight",
+            "projector.layers.0.bias",
+            "projector.layers.2.weight",
+            "projector.layers.2.bias",
         ],
         inference_mode=False,
     )
 
     print("Applying LoRA...", flush=True)
-    
+
     # Apply LoRA
     model = get_peft_model(model, lora_config)
+
+    # for name, param in model.named_parameters():
+    #     if any(x in name for x in ["projector", "vision.norm", "vision.attn_pool.latent"]):
+    #         param.requires_grad = True
+        
     model.print_trainable_parameters()
     
     print("LoRA applied.", flush=True)
@@ -141,11 +152,11 @@ def train_deepseek_vl2():
     import wandb
     wandb.init(
         project="deepseek-vl2-mimic-cxr",
-        name="lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision",
+        name="lora-r16-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision",
         config={
             "model": "deepseek-vl2-small",
             "dataset": "mimic-cxr",
-            "lora_r": 8,
+            "lora_r": 16,
             "learning_rate": 1e-4,
             "lr_scheduler_type": "cosine",
             "warmup_ratio": 0.05, # 5% warmup
@@ -182,9 +193,20 @@ def train_deepseek_vl2():
         tokenizer=tokenizer,
         mlm=False  # Causal LM
     )
+
+    # Optimizer
+    from torch.optim import AdamW
+
+    projector_params = [p for n, p in model.named_parameters() if "projector" in n and p.requires_grad]
+    other_params = [p for n, p in model.named_parameters() if "projector" not in n and p.requires_grad]
     
+    optimizer = AdamW([
+        {"params": projector_params, "lr": 3e-4},
+        {"params": other_params, "lr": 1e-4}
+    ], weight_decay=0.01)
+        
     # Training arguments
-    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision"
+    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r16-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision"
     training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=3, 
@@ -209,7 +231,7 @@ def train_deepseek_vl2():
         optim="adamw_torch",
         lr_scheduler_type="cosine",
         report_to="wandb",  # Options: "wandb", "tensorboard", "none"
-        run_name="deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision",  # Name for wandb run
+        run_name="deepseek-vl2-mimic-cxr-lora-r16-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision",  # Name for wandb run
         remove_unused_columns=False,
         # Memory optimizations
         dataloader_num_workers=0,  # KEY FIX
@@ -225,6 +247,7 @@ def train_deepseek_vl2():
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         data_collator=data_collator,
+        optimizers=(optimizer, None),
         callbacks=[
             EarlyStoppingCallback(
                 early_stopping_patience=6,  # Stop if no improvement for 6 eval_steps (1200 steps)
@@ -277,7 +300,7 @@ def train_deepseek_vl2():
     trainer.train(resume_from_checkpoint=checkpoint)
     
     # Save final model
-    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final")
+    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r16-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final")
     
     print("Training complete!", flush=True)
 
