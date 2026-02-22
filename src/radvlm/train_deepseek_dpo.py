@@ -295,6 +295,8 @@ def dpo_step(
     model,
     enc_chosen,   lbl_chosen,
     enc_rejected, lbl_rejected,
+    log_ref_c: torch.Tensor,   # ← precomputed scalars, on CPU
+    log_ref_r: torch.Tensor,
     beta: float,
     acc_steps: int = 1,
 ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -306,15 +308,19 @@ def dpo_step(
         loss_val  — detached scalar for logging
         log_ratio — detached scalar for accuracy logging
     """
+    device = enc_chosen["input_ids"].device
+
+    log_ref_c = log_ref_c.to(device)
+    log_ref_r = log_ref_r.to(device)
+
     # ── 1. Reference log-probs (no grad, freed immediately) ───────────────
-    with reference_mode(model):
-        with torch.no_grad():
-            log_ref_c = completion_log_prob(
-                model, enc_chosen,   lbl_chosen,   use_autocast=False).detach()
-            torch.cuda.empty_cache()
-            log_ref_r = completion_log_prob(
-                model, enc_rejected, lbl_rejected, use_autocast=False).detach()
-            torch.cuda.empty_cache()
+    # with torch.no_grad():
+    #     log_ref_c = completion_log_prob(
+    #         ref_model, enc_chosen,   lbl_chosen,   use_autocast=False).detach()
+    #     torch.cuda.empty_cache()
+    #     log_ref_r = completion_log_prob(
+    #         ref_model, enc_rejected, lbl_rejected, use_autocast=False).detach()
+    #     torch.cuda.empty_cache()
 
     # ── 2. Peek at rejected value (no grad) to compute chosen's gradient ──
     with torch.no_grad():
@@ -406,50 +412,117 @@ class BestModelTracker:
         logger.info(f"★ New best {self.metric}={val:.4f} → {self.save_dir}")
         return True
 
+@torch.no_grad()
+def precompute_reference_logprobs(
+    ref_model_path: str,
+    base_model_path: str,
+    all_records: list,
+    processor,
+    max_seq_length: int,
+    device: torch.device,
+    cache_path: str,
+) -> dict:
+    """
+    Load the SFT reference model, compute log-probs for all samples,
+    cache them, then delete the model before training starts.
+    """
+    cache_file = Path(cache_path) / "ref_logprobs.pt"
+    if cache_file.exists():
+        logger.info(f"Loading cached reference log-probs from {cache_file}")
+        return torch.load(cache_file, map_location="cpu")
+
+    logger.info("Loading reference model for log-prob precomputation...")
+    
+    # Load base model
+    base = AutoModelForCausalLM.from_pretrained(
+        base_model_path,
+        trust_remote_code=True,
+        torch_dtype=torch.bfloat16,
+        device_map="auto",
+        low_cpu_mem_usage=True,
+    )
+    # Load the SFT adapter (the correct reference: your SFT checkpoint)
+    ref_model = PeftModel.from_pretrained(base, ref_model_path, is_trainable=False)
+    ref_model.eval()
+
+    cache = {}
+    for i, rec in enumerate(tqdm(all_records, desc="Precomputing ref log-probs")):
+        enc_c, lbl_c = encode_single(
+            processor, rec["prompt"], rec["chosen"],
+            rec["images"], max_seq_length, device,
+        )
+        enc_r, lbl_r = encode_single(
+            processor, rec["prompt"], rec["rejected"],
+            rec["images"], max_seq_length, device,
+        )
+        log_ref_c = completion_log_prob(ref_model, enc_c, lbl_c, use_autocast=False)
+        torch.cuda.empty_cache()
+        log_ref_r = completion_log_prob(ref_model, enc_r, lbl_r, use_autocast=False)
+        torch.cuda.empty_cache()
+
+        # Use a stable key — index is fine if you don't shuffle before caching
+        cache[i] = {
+            "log_ref_c": log_ref_c.cpu(),
+            "log_ref_r": log_ref_r.cpu(),
+        }
+
+    # Save to disk so resuming doesn't recompute
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(cache, cache_file)
+    logger.info(f"Reference log-probs cached → {cache_file}")
+
+    # Free memory before training
+    del ref_model, base
+    torch.cuda.empty_cache()
+    import gc; gc.collect()
+    logger.info("Reference model deleted from memory.")
+
+    return cache
+
 
 @torch.no_grad()
 def dpo_loss_eval(
     model,
     enc_chosen,   lbl_chosen,
     enc_rejected, lbl_rejected,
+    log_ref_c: torch.Tensor,   # precomputed, on CPU
+    log_ref_r: torch.Tensor,
     beta: float,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """
-    Eval-only DPO loss. All four passes are no-grad, so run them
-    sequentially with cache clears to keep peak memory low.
-    """
-    log_pi_c  = completion_log_prob(model, enc_chosen,   lbl_chosen)
+    device = enc_chosen["input_ids"].device
+
+    log_pi_c = completion_log_prob(model, enc_chosen,   lbl_chosen)
     torch.cuda.empty_cache()
-    log_pi_r  = completion_log_prob(model, enc_rejected, lbl_rejected)
+    log_pi_r = completion_log_prob(model, enc_rejected, lbl_rejected)
     torch.cuda.empty_cache()
 
-    with reference_mode(model):
-        log_ref_c = completion_log_prob(model, enc_chosen,   lbl_chosen,   use_autocast=False)
-        torch.cuda.empty_cache()
-        log_ref_r = completion_log_prob(model, enc_rejected, lbl_rejected, use_autocast=False)
-        torch.cuda.empty_cache()
-
-    log_ratio = (log_pi_c - log_ref_c) - (log_pi_r - log_ref_r)
+    log_ratio = (log_pi_c - log_ref_c.to(device)) - (log_pi_r - log_ref_r.to(device))
     loss      = -F.logsigmoid(beta * log_ratio)
     return loss, log_ratio
 
-# ── Evaluation ───────────────────────────────────────────────────────────────
+
 @torch.no_grad()
 def evaluate(
-    model, processor, eval_records: list, beta: float,
+    model, processor, eval_records: list, val_cache: dict, beta: float,
     max_seq_length: int, device: torch.device, max_samples: int,
 ) -> dict:
     model.eval()
     records = eval_records[:max_samples]
     total_loss = total_acc = total_ratio = 0.0
 
-    for rec in tqdm(records, desc="Eval", leave=False):
+    for i, rec in enumerate(tqdm(records, desc="Eval", leave=False)):
         enc_c, lbl_c = encode_single(processor, rec["prompt"], rec["chosen"],
                                      rec["images"], max_seq_length, device)
         enc_r, lbl_r = encode_single(processor, rec["prompt"], rec["rejected"],
                                      rec["images"], max_seq_length, device)
 
-        loss, log_ratio = dpo_loss_eval(model, enc_c, lbl_c, enc_r, lbl_r, beta)
+        cached = val_cache[i]
+        loss, log_ratio = dpo_loss_eval(
+            model, enc_c, lbl_c, enc_r, lbl_r,
+            log_ref_c=cached["log_ref_c"],
+            log_ref_r=cached["log_ref_r"],
+            beta=beta,
+        )
 
         total_loss  += loss.item()
         total_acc   += float(log_ratio.item() > 0)
@@ -462,7 +535,6 @@ def evaluate(
         "eval/accuracy":  total_acc   / n,
         "eval/log_ratio": total_ratio / n,
     }
-
 
 # ── W&B reporter ───────────────────────────────────────────────────────────────
 def setup_reporter(cfg: TrainingConfig):
@@ -499,6 +571,12 @@ def main():
     model, processor, tokenizer = setup_model(cfg.model_path, cfg.base_model_path)
     processor.tokenizer.padding_side = "right"
 
+    # Load a separate frozen reference model
+    # ref_model, _, _ = setup_model(cfg.model_path, cfg.base_model_path)
+    # for p in ref_model.parameters():
+    #     p.requires_grad = False
+    # ref_model.eval()
+
     # Data
     logger.info("Loading preference dataset ...")
     preference_data = load_preference_dataset()
@@ -509,6 +587,20 @@ def main():
     train_data = dataset_wrapper.get_split_data("train")
     val_data   = dataset_wrapper.get_split_data("validate")
     logger.info(f"Train: {len(train_data)} | Val: {len(val_data)}")
+    all_data   = train_data + val_data
+
+    ref_cache = precompute_reference_logprobs(
+        ref_model_path=cfg.model_path,   # your SFT checkpoint
+        base_model_path=cfg.base_model_path,
+        all_records=all_data,
+        processor=processor,
+        max_seq_length=cfg.max_seq_length,
+        device=device,
+        cache_path=cfg.output_dir,
+    )
+
+    train_cache = {i: ref_cache[i] for i in range(len(train_data))}
+    val_cache   = {i: ref_cache[len(train_data) + i] for i in range(len(val_data))}
 
     # Optimiser & scheduler
     optimizer = AdamW(
@@ -540,7 +632,7 @@ def main():
     for epoch in range(1, cfg.num_train_epochs + 1):
         random.shuffle(train_data)
 
-        for rec in tqdm(train_data, desc=f"Epoch {epoch}"):
+        for rec, idx in zip(train_data, range(len(train_data))):
 
             # Skip samples already covered before the checkpoint
             if samples_to_skip > 0:
@@ -556,9 +648,13 @@ def main():
                 rec["images"], cfg.max_seq_length, device,
             )
 
+            cached = train_cache[idx]
             loss_val, log_ratio = dpo_step(
                 model, enc_c, lbl_c, enc_r, lbl_r,
-                cfg.beta, acc_steps=acc,
+                log_ref_c=cached["log_ref_c"],
+                log_ref_r=cached["log_ref_r"],
+                beta=cfg.beta,
+                acc_steps=acc,
             )
 
             accum_loss += loss_val.item() / acc
@@ -594,7 +690,7 @@ def main():
 
             if val_data and global_step % cfg.eval_steps == 0:
                 eval_metrics = evaluate(
-                    model, processor, val_data,
+                    model, processor, val_data, val_cache,
                     cfg.beta, cfg.max_seq_length, device, cfg.eval_samples,
                 )
                 logger.info("  eval | " + " | ".join(
