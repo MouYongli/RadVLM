@@ -18,7 +18,7 @@ def evaluate_pre_training():
     print("Evaluating pre-trained MedGemma model...", flush=True)
     
     here = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.abspath(os.path.join(here, "../../results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct-final"))
+    model_path = os.path.abspath(os.path.join(here, "../../results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-proj-final"))
     evaluator = MedGemmaPretrainingEvaluator(model_path=model_path, base_model_path=MEDGEMMA_BASE_MODEL_PATH)
     raw_data = load_dataset()
     
@@ -37,7 +37,7 @@ def evaluate_pre_training():
     study_ids, generated_reports, ground_truth_reports, losses, perplexities = evaluator.evaluate_reports(val_dataloader, max_samples=500)
     # save the study_ids and generated reports to text file for further inspection
     
-    output_file = '/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/generated_reports/generated_reports_medgemma_poc-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct-final.txt'
+    output_file = '/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/generated_reports/generated_reports_medgemma_poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-proj-final.txt'
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write("=" * 80 + "\n")
         f.write("GENERATED REPORTS EVALUATION\n")
