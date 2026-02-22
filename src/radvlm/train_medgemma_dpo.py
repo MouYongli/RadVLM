@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 class TrainingConfig:
     # Paths
     
-    model_path: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r16-lr1e-4-3epochs-final"
+    model_path: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final"
     output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/medgemma-1.5-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1"
 
     # Training
