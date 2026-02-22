@@ -23,22 +23,36 @@ class RadVLMDPODataset(torch.utils.data.Dataset):
         self.tokenizer = tokenizer
         self.max_seq_length = max_seq_length
         self.split = split
+        self.raw_data = data
+
+        self.raw_data = self._add_image_paths(self.raw_data)
         
-        # Filter data by split if needed
-        if split:
-            self.data = self._filter_data_by_split(data, split)
-        else:
-            self.data = data
-        # self.data = data
+        # Remove invalid samples from the raw data
+        self.raw_data = self._validate_data(self.raw_data)
+        
+        print(f"Initialized RadVLMDPODataset with {len(self.raw_data)} samples", flush=True)
+
+    def _add_image_paths(self, data):
+        """Add image paths to each sample based on the file field"""
+        data_corrected = []
+        for item in data:
+            image_paths = item.get("image_paths", [])
+            valid_images = []
             
-        # Remove invalid samples
-        self.data = self._validate_data(self.data)
-        
-        print(f"Initialized RadVLMDPODataset with {len(self.data)} samples", flush=True)
-    
+            for img_path in image_paths:                
+                valid_images.append(os.path.join(DATA_PROCESSED_DIR, img_path))
+            
+            # Keep item if at least one image matches the split
+            if valid_images:
+                item_copy = item.copy()
+                item_copy["image_paths"] = valid_images
+                data_corrected.append(item_copy)
+        return data_corrected
+
+
     def _filter_data_by_split(self, data, split):
         """Filter data by split using local split file"""
-        split_file = os.path.join(os.path.dirname(__file__), "preference-data-split.csv")
+        split_file = os.path.join(os.path.dirname(__file__), "preference-data-split-radgraph.csv")
         
         if not os.path.exists(split_file):
             print(f"Warning: Split file not found at {split_file}. Using all data.", flush=True)
@@ -100,137 +114,54 @@ class RadVLMDPODataset(torch.utils.data.Dataset):
         print(f"Validated {len(valid_data)} out of {len(data)} samples", flush=True)
         return valid_data
     
-    def __len__(self):
-        return len(self.data)
-    
-    def __getitem__(self, idx):
-        """
-        Returns a dictionary with chosen and rejected responses
-        """
-        try:
-            item = self.data[idx]
-            image_paths = item["image_paths"]
-            
-            # Determine which is chosen vs rejected based on radiologist preference
+    def get_split_data(self, split: str) -> list[dict]:
+        filtered_data = self._filter_data_by_split(self.raw_data, split)
+
+        result = []
+        for item in filtered_data:
             if item["radiologist_preference"] == "report_1":
-                chosen_report = item["report_1"]
+                chosen_report   = item["report_1"]
                 rejected_report = item["report_2"]
             else:
-                chosen_report = item["report_2"]
+                chosen_report   = item["report_2"]
                 rejected_report = item["report_1"]
-            
-            # Load PIL images (similar to deepseek's load_pil_images)
-            pil_images = [Image.open(img_path).convert('RGB') for img_path in image_paths]
-            
-            # Build prompt
-            image_tokens = "<image>" * len(image_paths)
+
+            image_paths = item["image_paths"]
+
+            # Build the prompt-only messages (user turn with image placeholders).
+            # We apply the chat template with add_generation_prompt=True so the
+            # model knows to continue from the assistant turn.
+            pil_images = [Image.open(p).convert("RGB") for p in image_paths]
+            image_tokens = "<image>" * len(pil_images)
             prompt = f"{image_tokens}\nGenerate a radiology report for these X-rays."
             
-            # Return dictionary with all needed info
-            return {
-                "prompt": prompt,
-                "chosen": chosen_report,
-                "rejected": rejected_report,
-                "images": pil_images,
-                "image_paths": image_paths,
-            }
-            
-        except Exception as e:
-            print(f"Error processing item {idx}: {str(e)}", flush=True)
-            return None
+            conversation = [
+                {
+                    "role": "<|User|>",
+                    "content": prompt,
+                    "images": pil_images,
+                }
+            ]
 
+            chosen_report_chat = [
+                {
+                    "role": "<|Assistant|>",
+                    "content": chosen_report
+                }
+            ]
 
-def dpo_collate_fn(batch, processor, tokenizer, max_seq_length=3072):
-    """
-    Custom collator for DPO training with DeepSeek-VL2
-    
-    Args:
-        batch: List of samples from dataset
-        processor: DeepSeek VL2 processor
-        tokenizer: Tokenizer
-        max_seq_length: Maximum sequence length
-    
-    Returns:
-        Dictionary with chosen and rejected inputs properly formatted for DPO
-    """
-    # Filter out None values from failed samples
-    batch = [item for item in batch if item is not None]
-    
-    if len(batch) == 0:
-        return None
-    
-    # Process chosen responses
-    chosen_conversations = []
-    chosen_images_list = []
-    
-    for item in batch:
-        conversation = [
-            {
-                "role": "<|User|>",
-                "content": item["prompt"],
-                "images": item["image_paths"],
-            },
-            {
-                "role": "<|Assistant|>",
-                "content": item["chosen"]
-            }
-        ]
-        chosen_conversations.append(conversation)
-        chosen_images_list.append(item["images"])
-    
-    # Process rejected responses
-    rejected_conversations = []
-    rejected_images_list = []
-    
-    for item in batch:
-        conversation = [
-            {
-                "role": "<|User|>",
-                "content": item["prompt"],
-                "images": item["image_paths"],
-            },
-            {
-                "role": "<|Assistant|>",
-                "content": item["rejected"]
-            }
-        ]
-        rejected_conversations.append(conversation)
-        rejected_images_list.append(item["images"])
-    
-    # Tokenize chosen responses
-    chosen_inputs = processor(
-        conversations=chosen_conversations,
-        images=chosen_images_list,
-        force_batchify=True,
-        system_prompt="",
-        padding="max_length",
-        max_length=max_seq_length,
-        truncation=True,
-    )
-    
-    # Tokenize rejected responses
-    rejected_inputs = processor(
-        conversations=rejected_conversations,
-        images=rejected_images_list,
-        force_batchify=True,
-        system_prompt="",
-        padding="max_length",
-        max_length=max_seq_length,
-        truncation=True,
-    )
-    
-    # Convert to bfloat16 for pixel values
-    if hasattr(chosen_inputs, 'pixel_values') and chosen_inputs.pixel_values is not None:
-        chosen_inputs.pixel_values = chosen_inputs.pixel_values.to(dtype=torch.bfloat16)
-    if hasattr(rejected_inputs, 'pixel_values') and rejected_inputs.pixel_values is not None:
-        rejected_inputs.pixel_values = rejected_inputs.pixel_values.to(dtype=torch.bfloat16)
-    
-    # Return in format expected by DPOTrainer
-    return {
-        "input_ids_chosen": chosen_inputs["input_ids"],
-        "attention_mask_chosen": chosen_inputs["attention_mask"],
-        "pixel_values_chosen": chosen_inputs.get("pixel_values"),
-        "input_ids_rejected": rejected_inputs["input_ids"],
-        "attention_mask_rejected": rejected_inputs["attention_mask"],
-        "pixel_values_rejected": rejected_inputs.get("pixel_values"),
-    }
+            rejected_report_chat = [
+                {
+                    "role": "<|Assistant|>",
+                    "content": rejected_report
+                }
+            ]
+
+            result.append({
+                "prompt":   conversation,
+                "chosen":   chosen_report_chat,
+                "rejected": rejected_report_chat,
+                "images":   pil_images,
+            })
+
+        return result
