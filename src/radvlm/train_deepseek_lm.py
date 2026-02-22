@@ -122,10 +122,8 @@ def setup_model_with_lora(model_path: str):
             "vision.attn_pool.mlp.fc2",
 
             # Projector
-            "projector.layers.0.weight",
-            "projector.layers.0.bias",
-            "projector.layers.2.weight",
-            "projector.layers.2.bias",
+            "projector.layers.0",
+            "projector.layers.2",
         ],
         inference_mode=False,
     )
@@ -195,12 +193,12 @@ def train_deepseek_vl2():
     )
 
     # Optimizer
-    from torch.optim import AdamW
-
     projector_params = [p for n, p in model.named_parameters() if "projector" in n and p.requires_grad]
     other_params = [p for n, p in model.named_parameters() if "projector" not in n and p.requires_grad]
     
-    optimizer = AdamW([
+    import bitsandbytes as bnb
+
+    optimizer = bnb.optim.AdamW8bit([
         {"params": projector_params, "lr": 3e-4},
         {"params": other_params, "lr": 1e-4}
     ], weight_decay=0.01)
@@ -228,7 +226,7 @@ def train_deepseek_vl2():
         save_safetensors=True,  # Use safetensors format (more efficient)
         fp16=False,
         bf16=True,
-        optim="adamw_torch",
+        # optim="adamw_torch",
         lr_scheduler_type="cosine",
         report_to="wandb",  # Options: "wandb", "tensorboard", "none"
         run_name="deepseek-vl2-mimic-cxr-lora-r16-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision",  # Name for wandb run
