@@ -122,6 +122,12 @@ def setup_model_with_lora(model_path: str = MEDGEMMA_BASE_MODEL_PATH):
     
     # Apply LoRA
     model = get_peft_model(model, lora_config)
+
+    # Unfreeze projector params that can't be LoRA-adapted
+    for name, param in model.named_parameters():
+        if "multi_modal_projector" in name:
+            param.requires_grad = True
+        
     model.print_trainable_parameters()
     
     print("LoRA applied.", flush=True)
@@ -135,7 +141,7 @@ def train_medgemma_lm():
     import wandb
     wandb.init(
         project="medgemma-1.5-mimic-cxr",
-        name="poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision",
+        name="poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-proj",
         config={
             "model": "medgemma-1.5-4b-it",
             "dataset": "mimic-cxr",
@@ -181,9 +187,20 @@ def train_medgemma_lm():
     
     # Create collate function with processor bound
     collate_fn = create_collate_fn_medgemma(processor)
+
+    # Optimizer
+    projector_params = [p for n, p in model.named_parameters() if "multi_modal_projector" in n and p.requires_grad]
+    other_params = [p for n, p in model.named_parameters() if "multi_modal_projector" not in n and p.requires_grad]
+    
+    import bitsandbytes as bnb
+
+    optimizer = bnb.optim.AdamW8bit([
+        {"params": projector_params, "lr": 3e-4},
+        {"params": other_params, "lr": 1e-4}
+    ], weight_decay=0.01)
     
     # Training arguments
-    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision"
+    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-proj"
     training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=3, 
@@ -204,10 +221,10 @@ def train_medgemma_lm():
         greater_is_better=False,  # Lower loss is better
         fp16=False,
         bf16=True,
-        optim="adamw_torch",
+        # optim="adamw_torch",
         lr_scheduler_type="cosine",
         report_to="wandb",  # Options: "wandb", "tensorboard", "none"
-        run_name="medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision",  # Name for wandb run
+        run_name="medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-proj",  # Name for wandb run
         remove_unused_columns=False,
         # DeepSpeed config (disabled for single GPU)
         # deepspeed=os.path.join(here, "ds_config.json"),
@@ -220,6 +237,7 @@ def train_medgemma_lm():
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         data_collator=collate_fn,
+        optimizers=(optimizer, None),
         callbacks=[
             EarlyStoppingCallback(
                 early_stopping_patience=6,  # Stop if no improvement for 6 eval_steps
@@ -272,7 +290,7 @@ def train_medgemma_lm():
     trainer.train(resume_from_checkpoint=checkpoint)
     
     # Save final model
-    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final")
+    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-proj-final")
     
     print("Training complete!", flush=True)
 
