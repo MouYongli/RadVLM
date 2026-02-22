@@ -3,10 +3,12 @@ from PIL import Image
 import pandas as pd
 import os
 import sys
-sys.path.append('/home/gustke/Projects/RadVLM')
+import random
+# sys.path.append('/home/gustke/Projects/RadVLM')
 
-here = os.path.dirname(os.path.abspath(__file__))
+# here = os.path.dirname(os.path.abspath(__file__))
 
+from src.radvlm.utils.config import DATA_PROCESSED_DIR
 
 class RadVLMDPODataset(torch.utils.data.Dataset):
     """Dataset for DPO training with preference pairs"""

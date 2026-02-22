@@ -1,3 +1,6 @@
+import os
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+
 import torch
 from transformers import AutoModelForCausalLM, TrainingArguments, get_cosine_schedule_with_warmup
 from peft import LoraConfig, get_peft_model, TaskType, PeftModel
@@ -12,11 +15,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 import torch.nn.functional as F
-from torch.cuda.amp import GradScaler, autocast
+from torch.cuda.amp import autocast
 from torch.optim import AdamW
 from tqdm import tqdm
 import json
-import os
 import sys
 # sys.path.append('/home/gustke/Projects/RadVLM')
 
@@ -38,7 +40,8 @@ logger = logging.getLogger(__name__)
 class TrainingConfig:
     # Paths
     
-    model_path: str = "pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final"
+    model_path: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final"
+    base_model_path: str = "deepseek-ai/deepseek-vl2-small"
     output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1"
 
     # Training
@@ -94,39 +97,48 @@ def setup_model(model_path: str, base_model_path="deepseek-ai/deepseek-vl2-small
     
     print("Loading base model...", flush=True)
     device='cuda' if torch.cuda.is_available() else 'cpu'
-    print(f"Loading model from {model_path} onto {device}...", flush=True)
-    model: DeepseekVLV2ForCausalLM = AutoModelForCausalLM.from_pretrained(
-        model_path,
-        trust_remote_code=True,
-        torch_dtype=torch.bfloat16,
-        device_map="auto",
-        low_cpu_mem_usage=True
-    ).to(device)
-
-    # Load processor and tokenizer from base model (they don't change during training)
-
-    # Read base_model_path from model config if available
-    if os.path.exists(os.path.join(model_path, "adapter_config.json")):
+    
+    # Check if we're loading an existing adapter
+    has_adapter = os.path.exists(os.path.join(model_path, "adapter_config.json"))
+    
+    if has_adapter:
+        # Load existing PEFT model with adapter
+        print(f"Loading PEFT model with existing adapter from {model_path}...", flush=True)
         
+        # Read base model path from adapter config
         with open(os.path.join(model_path, "adapter_config.json"), 'r') as f:
             adapter_config = json.load(f)
             if "base_model_name_or_path" in adapter_config:
                 base_model_path = adapter_config["base_model_name_or_path"]
                 print(f"Base model path found in adapter config: {base_model_path}", flush=True)
-
-    print(f"Loading processor and tokenizer from {base_model_path}...", flush=True)
-    processor: DeepseekVLV2Processor = DeepseekVLV2Processor.from_pretrained(base_model_path)
-    tokenizer = processor.tokenizer
-    
-    # Freeze vision encoder
-    for name, param in model.named_parameters():
-        if "vision_tower" in name or "visual" in name or "vision_model" in name:
-            param.requires_grad = False
-    
-    print("Vision encoder frozen.", flush=True)
-    
-    # If no adapter was loaded, apply new LoRA
-    if not os.path.exists(os.path.join(model_path, "adapter_config.json")):
+        
+        # Load base model first
+        base_model = AutoModelForCausalLM.from_pretrained(
+            base_model_path,
+            trust_remote_code=True,
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+            low_cpu_mem_usage=True
+        )
+        
+        # Load PEFT adapter on top
+        model = PeftModel.from_pretrained(
+            base_model,
+            model_path,
+            is_trainable=True
+        )
+        print("PEFT adapter loaded successfully.", flush=True)
+    else:
+        # Load base model and apply new LoRA
+        print(f"Loading base model from {model_path}...", flush=True)
+        model: DeepseekVLV2ForCausalLM = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            trust_remote_code=True,
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+            low_cpu_mem_usage=True
+        ).to(device)
+        
         lora_config = LoraConfig(
             task_type=TaskType.CAUSAL_LM,
             r=16,
@@ -145,8 +157,19 @@ def setup_model(model_path: str, base_model_path="deepseek-ai/deepseek-vl2-small
             inference_mode=False,
         )
         
-        print("Applying LoRA...", flush=True)
+        print("Applying new LoRA adapter...", flush=True)
         model = get_peft_model(model, lora_config)
+
+    print(f"Loading processor and tokenizer from {base_model_path}...", flush=True)
+    processor: DeepseekVLV2Processor = DeepseekVLV2Processor.from_pretrained(base_model_path)
+    tokenizer = processor.tokenizer
+    
+    # Freeze vision encoder
+    for name, param in model.named_parameters():
+        if "vision_tower" in name or "visual" in name or "vision_model" in name:
+            param.requires_grad = False
+    
+    print("Vision encoder frozen.", flush=True)
     
     model.print_trainable_parameters()
     print("Model setup complete.", flush=True)
@@ -166,12 +189,12 @@ def encode_single(
     """
     Tokenise `prompt + completion` for one sample with any number of images.
 
-    Prompt-masking strategy: tokenise the completion alone (no images) to get
-    its token count, then derive prompt_len = total_len - completion_len.
-    This avoids processing images twice.
+    Prompt-masking strategy: find the assistant token in the sequence to
+    determine where the completion starts. Everything before is masked.
     """
     images = pil_images if pil_images else None
 
+    # Process the full conversation (prompt + completion)
     full_enc = processor(
         conversations=prompt_text + completion_text,
         images=images,
@@ -182,25 +205,37 @@ def encode_single(
         max_length=max_length,
         inference_mode=False,  # ensure generation prompt is added for correct tokenisation
     )
-    full_enc = {k: v.to(device) for k, v in full_enc.items()}
-    if full_enc.get("pixel_values") is not None:
-        full_enc["pixel_values"] = full_enc["pixel_values"].to(dtype=torch.bfloat16)
+    # Convert BatchCollateOutput to dict
+    full_enc = {k: v.to(device) if isinstance(v, torch.Tensor) else v 
+                for k, v in vars(full_enc).items()}
+    
+    # Convert images to bfloat16 if present
+    if full_enc.get("images") is not None and isinstance(full_enc["images"], torch.Tensor):
+        full_enc["images"] = full_enc["images"].to(dtype=torch.bfloat16)
 
-    # Tokenise only the completion (no images) to count its tokens.
-    # Subtract 1 to exclude the BOS token the processor prepends.
-    completion_enc = processor(
-        conversations=completion_text,
-        images=None,
-        force_batchify=True,
-        system_prompt="",
-        padding="max_length",
-        truncation=True,
-        max_length=max_length,
-        inference_mode=False,
+    # Find where the assistant's response starts by searching for the assistant token
+    assistant_token = "<|Assistant|>"
+    assistant_token_ids = processor.tokenizer.encode(
+        assistant_token, 
+        add_special_tokens=False
     )
-    completion_len = int(completion_enc["attention_mask"].sum().item()) - 1
-    total_len      = int(full_enc["attention_mask"].sum().item())
-    prompt_len     = total_len - completion_len
+    
+    # Convert input_ids to list for searching
+    input_ids_list = full_enc["input_ids"][0].tolist()
+    
+    # Search for the assistant token sequence
+    prompt_len = None
+    for i in range(len(input_ids_list) - len(assistant_token_ids) + 1):
+        if input_ids_list[i:i+len(assistant_token_ids)] == assistant_token_ids:
+            # Position AFTER the assistant token is where completion starts
+            prompt_len = i + len(assistant_token_ids)
+            break
+    
+    if prompt_len is None:
+        logger.warning("Could not find assistant token in sequence, using fallback")
+        # Fallback: estimate based on image tokens (DeepSeek-VL2 uses 576 tokens per image)
+        num_images = len(pil_images) if pil_images else 0
+        prompt_len = 10 + (num_images * 576) + 30
 
     labels = full_enc["input_ids"].clone()
     labels[0, :prompt_len] = -100   # mask prompt tokens from the loss
@@ -226,7 +261,9 @@ def completion_log_prob(
         logits = model(
             input_ids=enc["input_ids"],
             attention_mask=enc["attention_mask"],
-            pixel_values=enc.get("pixel_values"),
+            images=enc.get("images"),
+            images_seq_mask=enc.get("images_seq_mask"),
+            images_spatial_crop=enc.get("images_spatial_crop"),
             return_dict=True,
         ).logits  # (1, seq_len, vocab)
 
@@ -254,31 +291,61 @@ def reference_mode(model):
 
 
 # ── DPO loss ───────────────────────────────────────────────────────────────────
-def dpo_loss_single(
+def dpo_step(
     model,
     enc_chosen,   lbl_chosen,
     enc_rejected, lbl_rejected,
     beta: float,
+    acc_steps: int = 1,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """
-    DPO loss for one (chosen, rejected) pair.
+    Memory-efficient DPO step: only ONE policy computation graph lives in
+    memory at a time, achieved via manual gradient accumulation.
 
     Returns:
-        loss      — differentiable scalar for .backward()
-        log_ratio — detached scalar for accuracy / logging
+        loss_val  — detached scalar for logging
+        log_ratio — detached scalar for accuracy logging
     """
-    # Policy forward (LoRA active, gradients flow)
-    log_pi_c = completion_log_prob(model, enc_chosen,   lbl_chosen)
+    # ── 1. Reference log-probs (no grad, freed immediately) ───────────────
+    with reference_mode(model):
+        with torch.no_grad():
+            log_ref_c = completion_log_prob(
+                model, enc_chosen,   lbl_chosen,   use_autocast=False).detach()
+            torch.cuda.empty_cache()
+            log_ref_r = completion_log_prob(
+                model, enc_rejected, lbl_rejected, use_autocast=False).detach()
+            torch.cuda.empty_cache()
+
+    # ── 2. Peek at rejected value (no grad) to compute chosen's gradient ──
+    with torch.no_grad():
+        log_pi_r_val = completion_log_prob(
+            model, enc_rejected, lbl_rejected).detach()
+    torch.cuda.empty_cache()
+
+    # ── 3. Chosen forward (graph lives here) ──────────────────────────────
+    log_pi_c = completion_log_prob(model, enc_chosen, lbl_chosen)
+
+    # Compute log_ratio and loss value (all detached — just for logging/grad)
+    log_ratio = ((log_pi_c.detach() - log_ref_c) -
+                 (log_pi_r_val        - log_ref_r))
+    loss_val  = -F.logsigmoid(beta * log_ratio)
+
+    # Analytic gradient:  ∂loss/∂log_pi_c = β·(σ(β·r) - 1)  =  -β·σ(-β·r)
+    grad_c = beta * (torch.sigmoid(beta * log_ratio) - 1) / acc_steps
+    log_pi_c.backward(grad_c)
+    del log_pi_c
+    torch.cuda.empty_cache()
+
+    # ── 4. Rejected forward (graph lives here, chosen's is already freed) ─
     log_pi_r = completion_log_prob(model, enc_rejected, lbl_rejected)
 
-    # Reference forward (LoRA disabled, no grad)
-    with reference_mode(model):
-        log_ref_c = completion_log_prob(model, enc_chosen,   lbl_chosen,   use_autocast=False)
-        log_ref_r = completion_log_prob(model, enc_rejected, lbl_rejected, use_autocast=False)
+    # Analytic gradient:  ∂loss/∂log_pi_r = β·(1 - σ(β·r))  =  β·σ(-β·r)
+    grad_r = beta * (1 - torch.sigmoid(beta * log_ratio)) / acc_steps
+    log_pi_r.backward(grad_r)
+    del log_pi_r
+    torch.cuda.empty_cache()
 
-    log_ratio = (log_pi_c - log_ref_c) - (log_pi_r - log_ref_r)
-    loss      = -F.logsigmoid(beta * log_ratio)
-    return loss, log_ratio.detach()
+    return loss_val, log_ratio.detach()
 
 
 # ── Checkpoint helpers ─────────────────────────────────────────────────────────
@@ -287,12 +354,14 @@ def save_checkpoint(model, processor, optimizer, scheduler, scaler, step: int, o
     ckpt_dir.mkdir(parents=True, exist_ok=True)
     model.save_pretrained(ckpt_dir)
     processor.save_pretrained(ckpt_dir)
-    torch.save({
+    state_dict = {
         "optimizer":   optimizer.state_dict(),
         "scheduler":   scheduler.state_dict(),
-        "scaler":      scaler.state_dict(),
         "global_step": step,
-    }, ckpt_dir / "optimizer.pt")
+    }
+    if scaler is not None:
+        state_dict["scaler"] = scaler.state_dict()
+    torch.save(state_dict, ckpt_dir / "optimizer.pt")
     logger.info(f"Checkpoint saved → {ckpt_dir}")
 
 
@@ -312,7 +381,8 @@ def load_checkpoint(optimizer, scheduler, scaler, ckpt_dir: Path) -> int:
     state = torch.load(opt_path, map_location="cpu")
     optimizer.load_state_dict(state["optimizer"])
     scheduler.load_state_dict(state["scheduler"])
-    scaler.load_state_dict(state["scaler"])
+    if scaler is not None and "scaler" in state:
+        scaler.load_state_dict(state["scaler"])
     logger.info(f"Resumed from step {state['global_step']}")
     return state["global_step"]
 
@@ -337,22 +407,49 @@ class BestModelTracker:
         return True
 
 
-# ── Evaluation ────────────────────────────────────────────────────────────────
+@torch.no_grad()
+def dpo_loss_eval(
+    model,
+    enc_chosen,   lbl_chosen,
+    enc_rejected, lbl_rejected,
+    beta: float,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    Eval-only DPO loss. All four passes are no-grad, so run them
+    sequentially with cache clears to keep peak memory low.
+    """
+    log_pi_c  = completion_log_prob(model, enc_chosen,   lbl_chosen)
+    torch.cuda.empty_cache()
+    log_pi_r  = completion_log_prob(model, enc_rejected, lbl_rejected)
+    torch.cuda.empty_cache()
+
+    with reference_mode(model):
+        log_ref_c = completion_log_prob(model, enc_chosen,   lbl_chosen,   use_autocast=False)
+        torch.cuda.empty_cache()
+        log_ref_r = completion_log_prob(model, enc_rejected, lbl_rejected, use_autocast=False)
+        torch.cuda.empty_cache()
+
+    log_ratio = (log_pi_c - log_ref_c) - (log_pi_r - log_ref_r)
+    loss      = -F.logsigmoid(beta * log_ratio)
+    return loss, log_ratio
+
+# ── Evaluation ───────────────────────────────────────────────────────────────
 @torch.no_grad()
 def evaluate(
     model, processor, eval_records: list, beta: float,
     max_seq_length: int, device: torch.device, max_samples: int,
 ) -> dict:
     model.eval()
-    records     = eval_records[:max_samples]
-    total_loss  = total_acc = total_ratio = 0.0
+    records = eval_records[:max_samples]
+    total_loss = total_acc = total_ratio = 0.0
 
     for rec in tqdm(records, desc="Eval", leave=False):
         enc_c, lbl_c = encode_single(processor, rec["prompt"], rec["chosen"],
                                      rec["images"], max_seq_length, device)
         enc_r, lbl_r = encode_single(processor, rec["prompt"], rec["rejected"],
                                      rec["images"], max_seq_length, device)
-        loss, log_ratio = dpo_loss_single(model, enc_c, lbl_c, enc_r, lbl_r, beta)
+
+        loss, log_ratio = dpo_loss_eval(model, enc_c, lbl_c, enc_r, lbl_r, beta)
 
         total_loss  += loss.item()
         total_acc   += float(log_ratio.item() > 0)
@@ -399,7 +496,7 @@ def main():
     best_tracker = BestModelTracker(cfg.output_dir)
 
     # Model & processor
-    model, processor, tokenizer = setup_model(cfg)
+    model, processor, tokenizer = setup_model(cfg.model_path, cfg.base_model_path)
     processor.tokenizer.padding_side = "right"
 
     # Data
@@ -424,13 +521,13 @@ def main():
     total_steps     = steps_per_epoch * cfg.num_train_epochs
     warmup_steps    = int(total_steps * cfg.warmup_ratio)
     scheduler       = get_cosine_schedule_with_warmup(optimizer, warmup_steps, total_steps)
-    scaler          = GradScaler(enabled=(device.type == "cuda"))
+    # Note: No GradScaler needed for bfloat16 (only needed for float16)
 
     # Resume from checkpoint if one exists
     global_step = 0
     resume_ckpt = find_latest_checkpoint(cfg.output_dir)
     if resume_ckpt:
-        global_step = load_checkpoint(optimizer, scheduler, scaler, resume_ckpt)
+        global_step = load_checkpoint(optimizer, scheduler, None, resume_ckpt)
     samples_to_skip = global_step * acc   # re-skip already-trained samples
 
     # Training loop
@@ -459,23 +556,23 @@ def main():
                 rec["images"], cfg.max_seq_length, device,
             )
 
-            loss, log_ratio = dpo_loss_single(
-                model, enc_c, lbl_c, enc_r, lbl_r, cfg.beta,
+            loss_val, log_ratio = dpo_step(
+                model, enc_c, lbl_c, enc_r, lbl_r,
+                cfg.beta, acc_steps=acc,
             )
 
-            scaler.scale(loss / acc).backward()
-            accum_loss += loss.item() / acc
+            accum_loss += loss_val.item() / acc
             accum_acc  += float(log_ratio.item() > 0) / acc
             sample_idx += 1
-
+            
             if sample_idx % acc != 0:
                 continue
 
+            torch.cuda.empty_cache()
+
             # ── Optimiser step ────────────────────────────────────────────────
-            scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.max_grad_norm)
-            scaler.step(optimizer)
-            scaler.update()
+            optimizer.step()
             scheduler.step()
             optimizer.zero_grad()
             global_step += 1
@@ -508,7 +605,7 @@ def main():
 
             if global_step % cfg.save_steps == 0:
                 save_checkpoint(model, processor, optimizer, scheduler,
-                                scaler, global_step, cfg.output_dir)
+                                None, global_step, cfg.output_dir)
 
     # Final save
     final_dir = Path(cfg.output_dir) / "final"
