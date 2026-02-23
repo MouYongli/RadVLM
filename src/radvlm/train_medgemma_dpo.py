@@ -230,6 +230,7 @@ def reference_mode(model):
 # ── DPO loss ───────────────────────────────────────────────────────────────────
 def dpo_loss_single(
     model,
+    ref_model,
     enc_chosen,   lbl_chosen,
     enc_rejected, lbl_rejected,
     beta: float,
@@ -246,9 +247,8 @@ def dpo_loss_single(
     log_pi_r = completion_log_prob(model, enc_rejected, lbl_rejected)
 
     # Reference forward (LoRA disabled, no grad)
-    with reference_mode(model):
-        log_ref_c = completion_log_prob(model, enc_chosen,   lbl_chosen,   use_autocast=False)
-        log_ref_r = completion_log_prob(model, enc_rejected, lbl_rejected, use_autocast=False)
+    log_ref_c = completion_log_prob(ref_model, enc_chosen,   lbl_chosen,   use_autocast=False)
+    log_ref_r = completion_log_prob(ref_model, enc_rejected, lbl_rejected, use_autocast=False)
 
     log_ratio = (log_pi_c - log_ref_c) - (log_pi_r - log_ref_r)
     loss      = -F.logsigmoid(beta * log_ratio)
@@ -314,7 +314,7 @@ class BestModelTracker:
 # ── Evaluation ────────────────────────────────────────────────────────────────
 @torch.no_grad()
 def evaluate(
-    model, processor, eval_records: list, beta: float,
+    model, ref_model, processor, eval_records: list, beta: float,
     max_seq_length: int, device: torch.device, max_samples: int,
 ) -> dict:
     model.eval()
@@ -326,7 +326,7 @@ def evaluate(
                                      rec["images"], max_seq_length, device)
         enc_r, lbl_r = encode_single(processor, rec["prompt"], rec["rejected"],
                                      rec["images"], max_seq_length, device)
-        loss, log_ratio = dpo_loss_single(model, enc_c, lbl_c, enc_r, lbl_r, beta)
+        loss, log_ratio = dpo_loss_single(model, ref_model, enc_c, lbl_c, enc_r, lbl_r, beta)
 
         total_loss  += loss.item()
         total_acc   += float(log_ratio.item() > 0)
@@ -376,6 +376,11 @@ def main():
     model     = setup_model(cfg)
     processor = AutoProcessor.from_pretrained(MEDGEMMA_BASE_MODEL_PATH, local_files_only=True)
     processor.tokenizer.padding_side = "right"
+
+    ref_model = setup_model(cfg)
+    for param in ref_model.parameters():
+        param.requires_grad = False
+    ref_model.eval()
 
     # Data
     logger.info("Loading preference dataset ...")
@@ -435,7 +440,7 @@ def main():
             )
 
             loss, log_ratio = dpo_loss_single(
-                model, enc_c, lbl_c, enc_r, lbl_r, cfg.beta,
+                model, ref_model, enc_c, lbl_c, enc_r, lbl_r, cfg.beta,
             )
 
             scaler.scale(loss / acc).backward()
@@ -472,7 +477,7 @@ def main():
 
             if val_data and global_step % cfg.eval_steps == 0:
                 eval_metrics = evaluate(
-                    model, processor, val_data,
+                    model, ref_model, processor, val_data,
                     cfg.beta, cfg.max_seq_length, device, cfg.eval_samples,
                 )
                 logger.info("  eval | " + " | ".join(
