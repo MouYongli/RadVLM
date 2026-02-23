@@ -172,6 +172,8 @@ def generate_reports():
 
     generated_reports = []
     study_ids = []
+    ground_truth_reports = []
+    image_paths = []
     
     for batch in tqdm(dpo_dataloader, desc="Generating reports"):
         # print("\n\nBatch: ", batch, "\n\n", flush=True)
@@ -186,7 +188,8 @@ def generate_reports():
             
             generated_reports.append((report_a, report_b))
             study_ids.append(study_id)
-            
+            ground_truth_reports.append(gt_report)
+            image_paths.append(images)
 
     output_file = os.path.join(here, "../../results/dpo_dataset/deepseek-vl2-generated-report-pairs.txt")
 
@@ -201,6 +204,27 @@ def generate_reports():
             f.write("Report B (Sampling):\n")
             f.write(report_b + "\n")
             f.write("="*80 + "\n")
+    
+    # Also save results as JSON for easier parsing later
+    json_output_file = os.path.join(output_dir, "deepseek-vl2-generated-report-pairs.json")
+    print(f"\nSaving reports to {json_output_file}", flush=True) 
+    if len(ground_truth_reports) != len(study_ids):
+        print("Warning: Number of ground truth reports does not match number of generated reports.", flush=True) 
+    # Convert to list of dictionaries format
+    json_data = []
+    for i in range(len(study_ids)):
+        sample_dict = {
+            'study_id': study_ids[i],
+            'image_paths': image_paths[i] if i < len(image_paths) else None,
+            'report_1': generated_reports[i][0],
+            'report_2': generated_reports[i][1]
+        }
+        if i < len(ground_truth_reports):
+            sample_dict['ground_truth'] = ground_truth_reports[i]
+        json_data.append(sample_dict)
+    
+    with open(json_output_file, 'w') as f:
+        json.dump(json_data, f, indent=4)
 
 
     print("Report pair generation complete!", flush=True)
