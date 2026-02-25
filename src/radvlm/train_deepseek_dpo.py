@@ -40,9 +40,9 @@ logger = logging.getLogger(__name__)
 class TrainingConfig:
     # Paths
     
-    model_path: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final"
+    model_path: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r16-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-proj-final"
     base_model_path: str = "deepseek-ai/deepseek-vl2-small"
-    output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1"
+    output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-vision-proj"
 
     # Training
     num_train_epochs:            int   = 3
@@ -72,7 +72,7 @@ class TrainingConfig:
 
     # W&B
     wandb_project: str = "deepseek-vl2-mimic-cxr-dpo"
-    wandb_run:     str = "dpo-lora-r16-lr5e-5-beta0.1"
+    wandb_run:     str = "dpo-lora-r16-lr5e-5-beta0.1-vision-proj"
 
 
 def parse_args() -> TrainingConfig:
@@ -84,6 +84,34 @@ def parse_args() -> TrainingConfig:
     ns = p.parse_args()
     return TrainingConfig(**{k: v for k, v in vars(ns).items()})
 
+
+def patch_prepare_inputs_embeds(model):
+    """
+    Monkey-patch prepare_inputs_embeds to cast image features to match
+    the dtype of input embeddings, fixing the masked_scatter_ dtype error.
+    """
+    # Unwrap PEFT to get to the actual DeepseekVLV2ForCausalLM
+    base = model.base_model.model if hasattr(model, 'base_model') else model
+
+    original_fn = base.prepare_inputs_embeds.__func__
+
+    def patched_prepare_inputs_embeds(self, *args, **kwargs):
+        # Temporarily wrap masked_scatter_ to auto-cast source dtype
+        original_masked_scatter = torch.Tensor.masked_scatter_
+
+        def safe_masked_scatter_(self_t, mask, source):
+            return original_masked_scatter(self_t, mask, source.to(dtype=self_t.dtype))
+
+        torch.Tensor.masked_scatter_ = safe_masked_scatter_
+        try:
+            result = original_fn(self, *args, **kwargs)
+        finally:
+            torch.Tensor.masked_scatter_ = original_masked_scatter
+        return result
+
+    import types
+    base.prepare_inputs_embeds = types.MethodType(patched_prepare_inputs_embeds, base)
+    
 
 # ── Model loading ──────────────────────────────────────────────────────────────
 def setup_model(model_path: str, base_model_path="deepseek-ai/deepseek-vl2-small"):
@@ -256,12 +284,18 @@ def completion_log_prob(
     Using sum rather than mean avoids length bias: with mean log-prob,
     DPO would implicitly favour shorter completions.
     """
+
+    # Ensure image tensors are bfloat16 to avoid dtype mismatch in masked_scatter_
+    images = enc.get("images")
+    if images is not None and isinstance(images, torch.Tensor):
+        images = images.to(dtype=torch.bfloat16)
+        
     ctx = autocast(dtype=torch.bfloat16) if use_autocast else contextmanager(lambda: iter([None]))()
     with ctx:
         logits = model(
             input_ids=enc["input_ids"],
             attention_mask=enc["attention_mask"],
-            images=enc.get("images"),
+            images=images,
             images_seq_mask=enc.get("images_seq_mask"),
             images_spatial_crop=enc.get("images_spatial_crop"),
             return_dict=True,
@@ -443,6 +477,7 @@ def precompute_reference_logprobs(
     )
     # Load the SFT adapter (the correct reference: your SFT checkpoint)
     ref_model = PeftModel.from_pretrained(base, ref_model_path, is_trainable=False)
+    patch_prepare_inputs_embeds(ref_model)
     ref_model.eval()
 
     cache = {}
@@ -569,6 +604,7 @@ def main():
 
     # Model & processor
     model, processor, tokenizer = setup_model(cfg.model_path, cfg.base_model_path)
+    patch_prepare_inputs_embeds(model)
     processor.tokenizer.padding_side = "right"
 
     # Load a separate frozen reference model

@@ -17,7 +17,7 @@ def evaluate_pre_training():
     print("Evaluating DPO-trained DeepSeek VL2 model...", flush=True)
     
     here = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.abspath(os.path.join(here, "../../results/dpo/deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1/best_model"))
+    model_path = os.path.abspath(os.path.join(here, "../../results/dpo/deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-vision-proj/best_model"))
     # print(f"Loading model from: {model_path}", flush=True)
     evaluator = DeepSeekVL2PretrainingEvaluator(model_path=model_path)
     raw_data = load_dataset()
@@ -36,7 +36,7 @@ def evaluate_pre_training():
 
     study_ids, generated_reports, ground_truth_reports, losses, perplexities = evaluator.evaluate_reports(val_dataloader, max_samples=500)
     # save the study_ids and generated reports to text file for further inspection
-    output_file = '/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/generated_reports/generated_reports_dpo_lora-r16-lr5e-5-beta0.1.txt'
+    output_file = '/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/generated_reports/generated_reports_dpo_lora-r16-lr5e-5-beta0.1-vision-proj.txt'
     # Ensure parent directories exist
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     
