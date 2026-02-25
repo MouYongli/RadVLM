@@ -87,43 +87,43 @@ def setup_model_with_lora(model_path: str):
             "q_proj", "k_proj", "v_proj", "o_proj",
             "gate_proj", "up_proj", "down_proj",
             
-            # Vision encoder (last 6 blocks + pooler)
-            "vision.blocks.21.attn.qkv",
-            "vision.blocks.21.attn.proj",
-            "vision.blocks.22.attn.qkv",
-            "vision.blocks.22.attn.proj",
-            "vision.blocks.23.attn.qkv",
-            "vision.blocks.23.attn.proj",
-            "vision.blocks.24.attn.qkv",
-            "vision.blocks.24.attn.proj",
-            "vision.blocks.25.attn.qkv",
-            "vision.blocks.25.attn.proj",
-            "vision.blocks.26.attn.qkv",
-            "vision.blocks.26.attn.proj",
+            # # Vision encoder (last 6 blocks + pooler)
+            # "vision.blocks.21.attn.qkv",
+            # "vision.blocks.21.attn.proj",
+            # "vision.blocks.22.attn.qkv",
+            # "vision.blocks.22.attn.proj",
+            # "vision.blocks.23.attn.qkv",
+            # "vision.blocks.23.attn.proj",
+            # "vision.blocks.24.attn.qkv",
+            # "vision.blocks.24.attn.proj",
+            # "vision.blocks.25.attn.qkv",
+            # "vision.blocks.25.attn.proj",
+            # "vision.blocks.26.attn.qkv",
+            # "vision.blocks.26.attn.proj",
             
-            "vision.blocks.21.mlp.fc1",
-            "vision.blocks.21.mlp.fc2",
-            "vision.blocks.22.mlp.fc1",
-            "vision.blocks.22.mlp.fc2",
-            "vision.blocks.23.mlp.fc1",
-            "vision.blocks.23.mlp.fc2",
-            "vision.blocks.24.mlp.fc1",
-            "vision.blocks.24.mlp.fc2",
-            "vision.blocks.25.mlp.fc1",
-            "vision.blocks.25.mlp.fc2",
-            "vision.blocks.26.mlp.fc1",
-            "vision.blocks.26.mlp.fc2",
+            # "vision.blocks.21.mlp.fc1",
+            # "vision.blocks.21.mlp.fc2",
+            # "vision.blocks.22.mlp.fc1",
+            # "vision.blocks.22.mlp.fc2",
+            # "vision.blocks.23.mlp.fc1",
+            # "vision.blocks.23.mlp.fc2",
+            # "vision.blocks.24.mlp.fc1",
+            # "vision.blocks.24.mlp.fc2",
+            # "vision.blocks.25.mlp.fc1",
+            # "vision.blocks.25.mlp.fc2",
+            # "vision.blocks.26.mlp.fc1",
+            # "vision.blocks.26.mlp.fc2",
             
-            # Attention pooler
-            "vision.attn_pool.q",
-            "vision.attn_pool.kv",
-            "vision.attn_pool.proj",
-            "vision.attn_pool.mlp.fc1",
-            "vision.attn_pool.mlp.fc2",
+            # # Attention pooler
+            # "vision.attn_pool.q",
+            # "vision.attn_pool.kv",
+            # "vision.attn_pool.proj",
+            # "vision.attn_pool.mlp.fc1",
+            # "vision.attn_pool.mlp.fc2",
 
-            # Projector
-            "projector.layers.0",
-            "projector.layers.2",
+            # # Projector
+            # "projector.layers.0",
+            # "projector.layers.2",
         ],
         inference_mode=False,
     )
@@ -150,7 +150,7 @@ def train_deepseek_vl2():
     import wandb
     wandb.init(
         project="deepseek-vl2-mimic-cxr",
-        name="lora-r16-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision",
+        name="lora-r16-lr1e-4-6epochs-cosine-5pctwarmup-6earlystop-100pct",
         config={
             "model": "deepseek-vl2-small",
             "dataset": "mimic-cxr",
@@ -158,7 +158,7 @@ def train_deepseek_vl2():
             "learning_rate": 1e-4,
             "lr_scheduler_type": "cosine",
             "warmup_ratio": 0.05, # 5% warmup
-            "epochs": 3,
+            "epochs": 6,
             "data_fraction": 1.0,
             "early_stopping_patience": 6
         }
@@ -204,10 +204,10 @@ def train_deepseek_vl2():
     ], weight_decay=0.01)
         
     # Training arguments
-    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r16-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision"
+    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r16-lr1e-4-6epochs-cosine-5pctwarmup-6earlystop-100pct"
     training_args = TrainingArguments(
         output_dir=output_dir,
-        num_train_epochs=3, 
+        num_train_epochs=6, 
         per_device_train_batch_size=1,
         per_device_eval_batch_size=1,
         gradient_accumulation_steps=16,
@@ -229,7 +229,7 @@ def train_deepseek_vl2():
         # optim="adamw_torch",
         lr_scheduler_type="cosine",
         report_to="wandb",  # Options: "wandb", "tensorboard", "none"
-        run_name="deepseek-vl2-mimic-cxr-lora-r16-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision",  # Name for wandb run
+        run_name="deepseek-vl2-mimic-cxr-lora-r16-lr1e-4-6epochs-cosine-5pctwarmup-6earlystop-100pct",  # Name for wandb run
         remove_unused_columns=False,
         # Memory optimizations
         dataloader_num_workers=0,  # KEY FIX
@@ -298,7 +298,7 @@ def train_deepseek_vl2():
     trainer.train(resume_from_checkpoint=checkpoint)
     
     # Save final model
-    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r16-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final")
+    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r16-lr1e-4-6epochs-cosine-5pctwarmup-6earlystop-100pct-final")
     
     print("Training complete!", flush=True)
 
