@@ -579,7 +579,7 @@ def main():
 
     # Data
     logger.info("Loading preference dataset ...")
-    preference_data = load_preference_dataset()
+    preference_data = load_preference_dataset("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/deepseek_radgraph_preferences.json")
     dataset_wrapper = RadVLMDPODataset(
         preference_data, processor, tokenizer,
         max_seq_length=cfg.max_seq_length,

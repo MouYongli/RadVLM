@@ -2,6 +2,7 @@ from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 import torch
 from datetime import datetime
+import json
 import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))

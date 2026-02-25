@@ -1,4 +1,4 @@
-from transformers import AutoModelForCausalLM, AutoProcessor, AutoModelForImageTextToText
+from transformers import AutoModelForCausalLM, AutoProcessor
 import torch
 import os
 from tqdm import tqdm

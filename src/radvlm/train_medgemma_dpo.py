@@ -48,8 +48,8 @@ logger = logging.getLogger(__name__)
 class TrainingConfig:
     # Paths
     
-    model_path: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final"
-    output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/medgemma-1.5-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1"
+    model_path: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-proj-final"
+    output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/medgemma-1.5-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-vision-proj"
 
     # Training
     num_train_epochs:            int   = 3
@@ -79,7 +79,7 @@ class TrainingConfig:
 
     # W&B
     wandb_project: str = "medgemma-1.5-mimic-cxr-dpo"
-    wandb_run:     str = "dpo-lora-r16-lr5e-5-beta0.1"
+    wandb_run:     str = "dpo-lora-r16-lr5e-5-beta0.1-vision-proj"
 
 
 def parse_args() -> TrainingConfig:
@@ -379,7 +379,7 @@ def main():
 
     # Data
     logger.info("Loading preference dataset ...")
-    preference_data = load_preference_dataset()
+    preference_data = load_preference_dataset("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/medgemma_radgraph_preferences.json")
     dataset_wrapper = RadVLMDPODatasetMedGemma(
         preference_data, processor, processor.tokenizer,
         max_seq_length=cfg.max_seq_length,
