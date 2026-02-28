@@ -42,7 +42,7 @@ class TrainingConfig:
     
     model_path: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r16-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-proj-final"
     base_model_path: str = "deepseek-ai/deepseek-vl2-small"
-    output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-vision-proj"
+    output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-vision-proj-dataset4"
 
     # Training
     num_train_epochs:            int   = 3
@@ -615,7 +615,7 @@ def main():
 
     # Data
     logger.info("Loading preference dataset ...")
-    preference_data = load_preference_dataset("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/deepseek_radgraph_preferences.json")
+    preference_data = load_preference_dataset("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/deepseek-vl2-mimic-cxr-lora-r16-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-proj-final_radgraph_preferences.json")
     dataset_wrapper = RadVLMDPODataset(
         preference_data, processor, tokenizer,
         max_seq_length=cfg.max_seq_length,

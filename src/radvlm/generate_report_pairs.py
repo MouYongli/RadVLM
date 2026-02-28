@@ -146,7 +146,7 @@ def generate_reports():
     print("Generating reports using pre-trained DeepSeek VL2 model...", flush=True)
     
     here = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(here, "../../results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final")
+    model_path = os.path.join(here, "../../results/pretraining/deepseek-vl2-mimic-cxr-lora-r16-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-proj-final")
     report_generator = DeepSeekVL2ReportPairGenerator(model_path=model_path)
     raw_data = load_dataset()
     
@@ -192,7 +192,7 @@ def generate_reports():
             ground_truth_reports.append(gt_report)
             image_paths.append(images)
 
-    output_file = os.path.join(here, "../../results/dpo_dataset/deepseek-vl2-generated-report-pairs.txt")
+    output_file = os.path.join(here, "../../results/dpo_dataset/deepseek-vl2-mimic-cxr-lora-r16-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-proj-final-generated-report-pairs.txt")
 
     # Create output directory if it doesn't exist
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
@@ -207,7 +207,7 @@ def generate_reports():
             f.write("="*80 + "\n")
     
     # Also save results as JSON for easier parsing later
-    json_output_file = os.path.join(here, "../../results/dpo_dataset/deepseek-vl2-generated-report-pairs.json")
+    json_output_file = os.path.join(here, "../../results/dpo_dataset/deepseek-vl2-mimic-cxr-lora-r16-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-proj-final-generated-report-pairs.json")
     print(f"\nSaving reports to {json_output_file}", flush=True) 
     if len(ground_truth_reports) != len(study_ids):
         print("Warning: Number of ground truth reports does not match number of generated reports.", flush=True) 
