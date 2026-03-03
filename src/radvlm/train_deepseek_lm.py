@@ -249,7 +249,7 @@ def train_deepseek_vl2():
         callbacks=[
             EarlyStoppingCallback(
                 early_stopping_patience=6,  # Stop if no improvement for 6 eval_steps (1200 steps)
-                early_stopping_threshold=0.001  # Minimum improvement to reset patience
+                early_stopping_threshold=0.0005  # Minimum improvement to reset patience
             )
         ]
     )
