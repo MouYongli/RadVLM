@@ -76,6 +76,7 @@ class TrainingConfig:
     save_steps:    int = 2
     eval_samples:  int = 64
     seed:          int = 42
+    max_checkpoints: int = 3
 
     # W&B
     wandb_project: str = "medgemma-1.5-mimic-cxr-dpo"
@@ -256,7 +257,20 @@ def dpo_loss_single(
 
 
 # ── Checkpoint helpers ─────────────────────────────────────────────────────────
-def save_checkpoint(model, processor, optimizer, scheduler, scaler, step: int, out_dir: str):
+def cleanup_old_checkpoints(out_dir: str, max_checkpoints: int):
+    """Remove old checkpoints, keeping only the most recent max_checkpoints."""
+    ckpts = sorted(
+        Path(out_dir).glob("checkpoint-*"),
+        key=lambda p: int(p.name.split("-")[-1]),
+    )
+    if len(ckpts) > max_checkpoints:
+        for old_ckpt in ckpts[:-max_checkpoints]:
+            import shutil
+            shutil.rmtree(old_ckpt)
+            logger.info(f"Removed old checkpoint: {old_ckpt}")
+
+
+def save_checkpoint(model, processor, optimizer, scheduler, scaler, step: int, out_dir: str, max_checkpoints: int = None):
     ckpt_dir = Path(out_dir) / f"checkpoint-{step}"
     ckpt_dir.mkdir(parents=True, exist_ok=True)
     model.save_pretrained(ckpt_dir)
@@ -268,6 +282,10 @@ def save_checkpoint(model, processor, optimizer, scheduler, scaler, step: int, o
         "global_step": step,
     }, ckpt_dir / "optimizer.pt")
     logger.info(f"Checkpoint saved → {ckpt_dir}")
+    
+    # Clean up old checkpoints if limit is set
+    if max_checkpoints is not None and max_checkpoints > 0:
+        cleanup_old_checkpoints(out_dir, max_checkpoints)
 
 
 def find_latest_checkpoint(out_dir: str) -> Optional[Path]:
@@ -488,7 +506,7 @@ def main():
 
             if global_step % cfg.save_steps == 0:
                 save_checkpoint(model, processor, optimizer, scheduler,
-                                scaler, global_step, cfg.output_dir)
+                                scaler, global_step, cfg.output_dir, cfg.max_checkpoints)
 
     # Final save
     final_dir = Path(cfg.output_dir) / "final"
