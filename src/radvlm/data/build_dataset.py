@@ -1,6 +1,6 @@
 import os
 import json
-from src.radvlm.utils.config import DATA_PROCESSED_DIR
+from src.radvlm.utils.config import DATA_PROCESSED_DIR, DPO_DATA_PROCESSED_DIR
 
 here = os.path.dirname(os.path.abspath(__file__))
 

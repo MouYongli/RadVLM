@@ -8,7 +8,7 @@ import random
 
 # here = os.path.dirname(os.path.abspath(__file__))
 
-from src.radvlm.utils.config import DATA_PROCESSED_DIR
+from src.radvlm.utils.config import DATA_PROCESSED_DIR, DPO_DATA_PROCESSED_DIR
 
 class RadVLMDPODataset(torch.utils.data.Dataset):
     """Dataset for DPO training with preference pairs"""
@@ -54,7 +54,8 @@ class RadVLMDPODataset(torch.utils.data.Dataset):
 
     def _filter_data_by_split(self, data, split):
         """Filter data by split using local split file"""
-        split_file = os.path.join(os.path.dirname(__file__), "preference-data-split-radgraph.csv")
+        # split_file = os.path.join(os.path.dirname(__file__), "preference-data-split-radgraph.csv")
+        split_file = os.path.join(DPO_DATA_PROCESSED_DIR, "dataset_split_p11.csv")
         
         if not os.path.exists(split_file):
             print(f"Warning: Split file not found at {split_file}. Using all data.", flush=True)

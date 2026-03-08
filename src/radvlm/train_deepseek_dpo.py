@@ -40,9 +40,9 @@ logger = logging.getLogger(__name__)
 class TrainingConfig:
     # Paths
     
-    model_path: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r16-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-proj-final"
+    model_path: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final"
     base_model_path: str = "deepseek-ai/deepseek-vl2-small"
-    output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-vision-proj-dataset4"
+    output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model3-datasetp11-25pct-correct-steps"
 
     # Training
     num_train_epochs:            int   = 3
@@ -64,16 +64,16 @@ class TrainingConfig:
     ])
 
     # Logging / checkpointing
-    logging_steps: int = 1
-    eval_steps:    int = 1
-    save_steps:    int = 2
+    logging_steps: int = 50
+    eval_steps:    int = 200
+    save_steps:    int = 200
     eval_samples:  int = 64
     max_checkpoints: int = 3  # Maximum number of checkpoints to keep
     seed:          int = 42
 
     # W&B
     wandb_project: str = "deepseek-vl2-mimic-cxr-dpo"
-    wandb_run:     str = "dpo-lora-r16-lr5e-5-beta0.1-vision-proj"
+    wandb_run:     str = "deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model3-datasetp11-25pct"
 
 
 def parse_args() -> TrainingConfig:
@@ -633,7 +633,7 @@ def main():
 
     # Data
     logger.info("Loading preference dataset ...")
-    preference_data = load_preference_dataset("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/deepseek-vl2-mimic-cxr-lora-r16-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-proj-final_radgraph_preferences.json")
+    preference_data = load_preference_dataset("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final-p11_radgraph_preferences.json")
     dataset_wrapper = RadVLMDPODataset(
         preference_data, processor, tokenizer,
         max_seq_length=cfg.max_seq_length,
@@ -683,7 +683,9 @@ def main():
     accum_loss = accum_acc = 0.0
 
     logger.info("Starting DPO training ...")
-    for epoch in range(1, cfg.num_train_epochs + 1):
+    epoch_pbar = tqdm(range(1, cfg.num_train_epochs + 1), desc="Epochs", position=0)
+    for epoch in epoch_pbar:
+        epoch_pbar.set_description(f"Epoch {epoch}/{cfg.num_train_epochs}")
         random.shuffle(train_data)
 
         for rec, idx in zip(train_data, range(len(train_data))):
