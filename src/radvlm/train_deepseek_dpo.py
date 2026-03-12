@@ -42,7 +42,7 @@ class TrainingConfig:
     
     model_path: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final"
     base_model_path: str = "deepseek-ai/deepseek-vl2-small"
-    output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model3-datasetp11-25pct-correct-steps"
+    output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model3-datasetp11-25pct-correct-shuffle"
 
     # Training
     num_train_epochs:            int   = 3
@@ -73,7 +73,7 @@ class TrainingConfig:
 
     # W&B
     wandb_project: str = "deepseek-vl2-mimic-cxr-dpo"
-    wandb_run:     str = "deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model3-datasetp11-25pct"
+    wandb_run:     str = "deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model3-datasetp11-25pct-correct-shuffle"
 
 
 def parse_args() -> TrainingConfig:
@@ -686,9 +686,16 @@ def main():
     epoch_pbar = tqdm(range(1, cfg.num_train_epochs + 1), desc="Epochs", position=0)
     for epoch in epoch_pbar:
         epoch_pbar.set_description(f"Epoch {epoch}/{cfg.num_train_epochs}")
-        random.shuffle(train_data)
+        # random.shuffle(train_data)
 
-        for rec, idx in zip(train_data, range(len(train_data))):
+        indices = list(range(len(train_data)))
+        random.shuffle(indices)
+
+        step_pbar = tqdm(indices, desc=f"Epoch {epoch} steps", position=1, leave=False, disable=not sys.stderr.isatty())
+        for idx in step_pbar:
+            rec = train_data[idx]
+
+        # for rec, idx in zip(train_data, range(len(train_data))):
 
             # Skip samples already covered before the checkpoint
             if samples_to_skip > 0:
@@ -716,6 +723,13 @@ def main():
             accum_loss += loss_val.item() / acc
             accum_acc  += float(log_ratio.item() > 0) / acc
             sample_idx += 1
+
+            step_pbar.set_postfix({
+                "loss": f"{accum_loss:.4f}",
+                "acc":  f"{accum_acc:.3f}",
+                "lr":   f"{scheduler.get_last_lr()[0]:.2e}",
+                "step": global_step,
+            })
             
             if sample_idx % acc != 0:
                 continue
