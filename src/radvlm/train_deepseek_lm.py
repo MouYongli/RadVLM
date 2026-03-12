@@ -88,14 +88,14 @@ def setup_model_with_lora(model_path: str):
             "gate_proj", "up_proj", "down_proj",
             
             # Vision encoder (last 10 blocks + pooler)
-            "vision.blocks.17.attn.qkv",
-            "vision.blocks.17.attn.proj",
-            "vision.blocks.18.attn.qkv",
-            "vision.blocks.18.attn.proj",
-            "vision.blocks.19.attn.qkv",
-            "vision.blocks.19.attn.proj",
-            "vision.blocks.20.attn.qkv",
-            "vision.blocks.20.attn.proj",
+            # "vision.blocks.17.attn.qkv",
+            # "vision.blocks.17.attn.proj",
+            # "vision.blocks.18.attn.qkv",
+            # "vision.blocks.18.attn.proj",
+            # "vision.blocks.19.attn.qkv",
+            # "vision.blocks.19.attn.proj",
+            # "vision.blocks.20.attn.qkv",
+            # "vision.blocks.20.attn.proj",
             "vision.blocks.21.attn.qkv",
             "vision.blocks.21.attn.proj",
             "vision.blocks.22.attn.qkv",
@@ -109,10 +109,10 @@ def setup_model_with_lora(model_path: str):
             "vision.blocks.26.attn.qkv",
             "vision.blocks.26.attn.proj",
             
-            "vision.blocks.17.mlp.fc1",
-            "vision.blocks.18.mlp.fc1",
-            "vision.blocks.19.mlp.fc1",
-            "vision.blocks.20.mlp.fc1",
+            # "vision.blocks.17.mlp.fc1",
+            # "vision.blocks.18.mlp.fc1",
+            # "vision.blocks.19.mlp.fc1",
+            # "vision.blocks.20.mlp.fc1",
             "vision.blocks.21.mlp.fc1",
             "vision.blocks.21.mlp.fc2",
             "vision.blocks.22.mlp.fc1",
@@ -162,12 +162,12 @@ def train_deepseek_vl2():
     import wandb
     wandb.init(
         project="deepseek-vl2-mimic-cxr",
-        name="lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-10vision",
+        name="lora-r8-lr5e-5-3epochs-cosine-5pctwarmup-6earlystop-100pct-6vision-correct-lr",
         config={
             "model": "deepseek-vl2-small",
             "dataset": "mimic-cxr",
             "lora_r": 8,
-            "learning_rate": 1e-4,
+            "learning_rate": 5e-5,
             "lr_scheduler_type": "cosine",
             "warmup_ratio": 0.05, # 5% warmup
             "epochs": 3,
@@ -205,18 +205,18 @@ def train_deepseek_vl2():
     )
 
     # Optimizer
-    projector_params = [p for n, p in model.named_parameters() if "projector" in n and p.requires_grad]
-    other_params = [p for n, p in model.named_parameters() if "projector" not in n and p.requires_grad]
+    # projector_params = [p for n, p in model.named_parameters() if "projector" in n and p.requires_grad]
+    # other_params = [p for n, p in model.named_parameters() if "projector" not in n and p.requires_grad]
     
     import bitsandbytes as bnb
 
-    optimizer = bnb.optim.AdamW8bit([
-        {"params": projector_params, "lr": 3e-4},
-        {"params": other_params, "lr": 1e-4}
-    ], weight_decay=0.01)
+    # optimizer = bnb.optim.AdamW8bit([
+    #     {"params": projector_params, "lr": 3e-4},
+    #     {"params": other_params, "lr": 1e-4}
+    # ], weight_decay=0.01)
         
     # Training arguments
-    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-10vision"
+    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr5e-5-3epochs-cosine-5pctwarmup-6earlystop-100pct-6vision-correct-lr"
     training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=3, 
@@ -224,7 +224,7 @@ def train_deepseek_vl2():
         per_device_eval_batch_size=1,
         gradient_accumulation_steps=16,
         gradient_checkpointing=False, # Deepseek-VL2 does not support gradient checkpointing
-        learning_rate=1e-4,
+        learning_rate=5e-5,
         weight_decay=0.01,
         warmup_ratio=0.05, # 5% warmup
         logging_steps=50,
@@ -238,10 +238,10 @@ def train_deepseek_vl2():
         save_safetensors=True,  # Use safetensors format (more efficient)
         fp16=False,
         bf16=True,
-        # optim="adamw_torch",
+        optim="adamw_torch",
         lr_scheduler_type="cosine",
         report_to="wandb",  # Options: "wandb", "tensorboard", "none"
-        run_name="deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-10vision",  # Name for wandb run
+        run_name="deepseek-vl2-mimic-cxr-lora-r8-lr5e-5-3epochs-cosine-5pctwarmup-6earlystop-100pct-6vision-correct-lr",  # Name for wandb run
         remove_unused_columns=False,
         # Memory optimizations
         dataloader_num_workers=0,  # KEY FIX
@@ -257,7 +257,6 @@ def train_deepseek_vl2():
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         data_collator=data_collator,
-        optimizers=(optimizer, None),
         callbacks=[
             EarlyStoppingCallback(
                 early_stopping_patience=6,  # Stop if no improvement for 6 eval_steps (1200 steps)
@@ -310,7 +309,7 @@ def train_deepseek_vl2():
     trainer.train(resume_from_checkpoint=checkpoint)
     
     # Save final model
-    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-10vision-final")
+    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr5e-5-3epochs-cosine-5pctwarmup-6earlystop-100pct-6vision-correct-lr-final")
     
     print("Training complete!", flush=True)
 
