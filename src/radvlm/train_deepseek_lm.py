@@ -3,7 +3,7 @@ from transformers import AutoModelForCausalLM, default_data_collator, TrainingAr
 from peft import LoraConfig, get_peft_model, TaskType
 import os
 import sys
-sys.path.append('/home/gustke/Projects/RadVLM')
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 here = os.path.dirname(os.path.abspath(__file__))
 
@@ -136,7 +136,7 @@ def train_deepseek_vl2():
     print("Processor and tokenizer loaded.", flush=True)
     print("Preparing datasets...", flush=True)
     # Prepare datasets
-    raw_data = load_dataset()
+    raw_data = load_dataset(["p11", "p12"])
     
     train_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='train', mode="train")
     
@@ -168,7 +168,7 @@ def train_deepseek_vl2():
         evaluation_strategy="steps",  # Evaluate every eval_steps
         save_total_limit=3,  # Keep only last 3 checkpoints to save space
         load_best_model_at_end=True,  # Load best model at the end
-        metric_for_best_model="loss",  # Use validation loss as metric
+        metric_for_best_model="eval_loss",  # Use validation loss as metric
         greater_is_better=False,  # Lower loss is better
         save_safetensors=True,  # Use safetensors format (more efficient)
         fp16=False,
@@ -192,7 +192,7 @@ def train_deepseek_vl2():
         callbacks=[
             EarlyStoppingCallback(
                 early_stopping_patience=6,  # Stop if no improvement for 6 eval_steps (1200 steps)
-                early_stopping_threshold=0.001  # Minimum improvement to reset patience
+                early_stopping_threshold=0.0005  # Minimum improvement to reset patience
             )
         ]
     )
