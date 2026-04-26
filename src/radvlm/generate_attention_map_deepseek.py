@@ -62,18 +62,7 @@ class DeepSeekVL2AttentionMapGenerator:
         print("Model loaded and set to evaluation mode.", flush=True)
     
 
-    def generate_attention_map(self, images, max_new_tokens=512):
-        """
-        Generate attention maps for the given images using the DeepSeek-VL2 model.
-        
-        Args:
-            images: List of image file paths
-            max_new_tokens: Maximum number of tokens to generate
-            
-        Returns:
-            torch.Tensor: Attention map for the generated report
-        """
-        
+    def generate_attention_map(self, images, max_new_tokens=512, layer_idx=-1):
         conversation = [
             {
                 "role": "<|User|>",
@@ -82,23 +71,37 @@ class DeepSeekVL2AttentionMapGenerator:
             },
             {"role": "<|Assistant|>", "content": ""},
         ]
-
-        # Load PIL images from the conversation
+    
         pil_images = load_pil_images(conversation)
-
-        # Process inputs (shared for both generations)
+    
         prepare_inputs = self.processor(
             conversations=conversation,
             images=pil_images,
             force_batchify=True,
             system_prompt=""
         ).to(self.model.device)
-        
-        # Run image encoder to get the image embeddings (shared)
-        inputs_embeds = self.model.prepare_inputs_embeds(**prepare_inputs)
 
+        # image_token_id = self.processor.image_token_id  # or check processor config
+        # print("image_token_id: ", image_token_id)
+        # input_ids = prepare_inputs.input_ids[0]          # (seq_len,)
+        
+        # image_positions = (input_ids == image_token_id).nonzero(as_tuple=True)[0]
+
+        images_seq_mask = prepare_inputs["images_seq_mask"][0]
+        image_positions = images_seq_mask.nonzero(as_tuple=True)[0]
+        
+        # After building image_positions, filter out newline/separator tokens.
+        # DeepSeek-VL2 typically uses token id 13 (\n) or a dedicated image_newline id.
+        # IMAGE_NEWLINE_TOKEN_ID = self.tokenizer.convert_tokens_to_ids("\n")
+        # # or check: model.config.image_token_id, model.config.image_newline_token_id
+        
+        # # input_ids shape: (seq_len,)
+        # patch_mask = (input_ids[image_positions] != IMAGE_NEWLINE_TOKEN_ID)
+        # image_positions_clean = image_positions[patch_mask]
+    
+        inputs_embeds = self.model.prepare_inputs_embeds(**prepare_inputs)
+    
         with torch.no_grad():
-            
             outputs = self.model.language.generate(
                 inputs_embeds=inputs_embeds,
                 attention_mask=prepare_inputs.attention_mask,
@@ -106,16 +109,40 @@ class DeepSeekVL2AttentionMapGenerator:
                 bos_token_id=self.tokenizer.bos_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
                 max_new_tokens=max_new_tokens,
-                do_sample=False,  # Greedy decoding
+                do_sample=False,
                 use_cache=True,
                 repetition_penalty=1.4,
                 no_repeat_ngram_size=4,
-                length_penalty=1.0
+                length_penalty=1.0,
+                output_attentions=True,
+                return_dict_in_generate=True,
             )
-            
-            
+    
+        # Only take the first generated token's attention — it has the full (seq_len, seq_len) shape
+        # outputs.attentions: tuple[num_tokens] → tuple[num_layers] → (batch, heads, seq_len, seq_len)
+
+        # Instead of first token only, average across all generated tokens
+        raw_maps = [outputs.attentions[t][layer_idx].detach().cpu().float()
+            for t in range(len(outputs.attentions))]
+
+        # Extract the last query row from each step → shape (batch, heads, kv_len_t)
+        # kv_len grows by 1 each step, so pad to the max length
+        last_rows = [m[:, :, -1, :] for m in raw_maps]  # (batch, heads, kv_len_t)
         
-        return outputs.attentions  # Return the attention maps from the model outputs
+        max_len = last_rows[-1].shape[-1]  # longest sequence (last token)
+        
+        padded = torch.stack([
+            torch.nn.functional.pad(row, (0, max_len - row.shape[-1]))  # pad right with zeros
+            for row in last_rows
+        ], dim=0)  # (num_tokens, batch, heads, max_len)
+        
+        attention_map = padded.mean(dim=0)  # (batch, heads, max_len)
+        
+        # Re-add a dummy query dim if downstream code expects 4D: (batch, heads, 1, max_len)
+        attention_map = attention_map.unsqueeze(2)
+
+        # attention_map = outputs.attentions[0][layer_idx].detach().cpu().float() # (batch, heads, seq_len, seq_len)
+        return attention_map, image_positions
 
 def generate_attention_maps():
     """Generate attention maps using the pre-trained DeepSeek VL2 model for a given dataset."""
@@ -123,8 +150,8 @@ def generate_attention_maps():
     print("Generating attention maps using pre-trained DeepSeek VL2 model...", flush=True)
     
     here = os.path.dirname(os.path.abspath(__file__))
-    # model_path = os.path.join(here, "../../results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final")
-    model_path = os.path.join(here, "../../results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-linear-5pctwarmup-3earlystop-100pct-final")
+    model_path = os.path.join(here, "../../results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final")
+    # model_path = os.path.join(here, "../../results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-linear-5pctwarmup-3earlystop-100pct-final")
     
     attention_generator = DeepSeekVL2AttentionMapGenerator(model_path=model_path)
     raw_data = load_dataset()
@@ -165,7 +192,7 @@ def generate_attention_maps():
             gt_report = batch['report'][i]
             
             # Generate attention map
-            attention_map = attention_generator.generate_attention_map(images)
+            attention_map, image_positions = attention_generator.generate_attention_map(images, layer_idx=-1)
             
             generated_attention_maps.append(attention_map)
             study_ids.append(study_id)
@@ -183,9 +210,10 @@ def generate_attention_maps():
 
             for image_idx, image_path in enumerate(images):
                 fig = attention_visualizer.visualize_attention_to_image(
+                    image_path,
                     attention_map,
-                    [image_path],
                     head_idx=0,
+                    image_positions=image_positions,
                     title=f"Attention Overlay for Study {study_id} - Image {image_idx}",
                     save_path=os.path.join(here, f"../../results/attention_visualizations/study_{study_id}_image_{image_idx}_overlay.png")
                 )

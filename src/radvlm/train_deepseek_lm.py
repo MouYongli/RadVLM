@@ -1,9 +1,12 @@
+import os
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+
 import torch
 from transformers import AutoModelForCausalLM, default_data_collator, TrainingArguments, Trainer, EarlyStoppingCallback
 from peft import LoraConfig, get_peft_model, TaskType
 import os
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 here = os.path.dirname(os.path.abspath(__file__))
 
@@ -75,21 +78,68 @@ def setup_model_with_lora(model_path: str):
     # Configure LoRA
     lora_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
-        r=32,  # LoRA rank (increase for more capacity: 32, 64)
-        lora_alpha=32,  # LoRA scaling factor
+        r=8,
+        lora_alpha=32,
         lora_dropout=0.05,
         bias="none",
         target_modules=[
-            "q_proj",
-            "k_proj", 
-            "v_proj",
-            "o_proj",
-            "gate_proj",
-            "up_proj",
-            "down_proj"
-        ],  # Apply LoRA to attention and MLP layers
+            # Language model
+            "q_proj", "k_proj", "v_proj", "o_proj",
+            "gate_proj", "up_proj", "down_proj",
+            
+            # Vision encoder (last 10 blocks + pooler)
+            # "vision.blocks.17.attn.qkv",
+            # "vision.blocks.17.attn.proj",
+            # "vision.blocks.18.attn.qkv",
+            # "vision.blocks.18.attn.proj",
+            # "vision.blocks.19.attn.qkv",
+            # "vision.blocks.19.attn.proj",
+            # "vision.blocks.20.attn.qkv",
+            # "vision.blocks.20.attn.proj",
+            "vision.blocks.21.attn.qkv",
+            "vision.blocks.21.attn.proj",
+            "vision.blocks.22.attn.qkv",
+            "vision.blocks.22.attn.proj",
+            "vision.blocks.23.attn.qkv",
+            "vision.blocks.23.attn.proj",
+            "vision.blocks.24.attn.qkv",
+            "vision.blocks.24.attn.proj",
+            "vision.blocks.25.attn.qkv",
+            "vision.blocks.25.attn.proj",
+            "vision.blocks.26.attn.qkv",
+            "vision.blocks.26.attn.proj",
+            
+            # "vision.blocks.17.mlp.fc1",
+            # "vision.blocks.18.mlp.fc1",
+            # "vision.blocks.19.mlp.fc1",
+            # "vision.blocks.20.mlp.fc1",
+            "vision.blocks.21.mlp.fc1",
+            "vision.blocks.21.mlp.fc2",
+            "vision.blocks.22.mlp.fc1",
+            "vision.blocks.22.mlp.fc2",
+            "vision.blocks.23.mlp.fc1",
+            "vision.blocks.23.mlp.fc2",
+            "vision.blocks.24.mlp.fc1",
+            "vision.blocks.24.mlp.fc2",
+            "vision.blocks.25.mlp.fc1",
+            "vision.blocks.25.mlp.fc2",
+            "vision.blocks.26.mlp.fc1",
+            "vision.blocks.26.mlp.fc2",
+            
+            # Attention pooler
+            "vision.attn_pool.q",
+            "vision.attn_pool.kv",
+            "vision.attn_pool.proj",
+            "vision.attn_pool.mlp.fc1",
+            "vision.attn_pool.mlp.fc2",
+
+            # # Projector
+            # "projector.layers.0",
+            # "projector.layers.2",
+        ],
         inference_mode=False,
     )
+
 
     print("Applying LoRA...", flush=True)
     
@@ -108,13 +158,13 @@ def train_deepseek_vl2():
     import wandb
     wandb.init(
         project="deepseek-vl2-mimic-cxr",
-        name="lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct",
+        name="lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p10-p11-p12-6vision-corrected-early-stopping",
         config={
             "model": "deepseek-vl2-small",
             "dataset": "mimic-cxr",
-            "lora_r": 32,
+            "lora_r": 8,
             "learning_rate": 1e-4,
-            "lr_scheduler_type": "linear",
+            "lr_scheduler_type": "cosine",
             "warmup_ratio": 0.05, # 5% warmup
             "epochs": 3,
             "data_fraction": 1.0,
@@ -136,7 +186,7 @@ def train_deepseek_vl2():
     print("Processor and tokenizer loaded.", flush=True)
     print("Preparing datasets...", flush=True)
     # Prepare datasets
-    raw_data = load_dataset(["p11", "p12"])
+    raw_data = load_dataset(["p10", "p11", "p12"])
     
     train_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='train', mode="train")
     
@@ -151,7 +201,7 @@ def train_deepseek_vl2():
     )
     
     # Training arguments
-    output_dir = "../../../../../hpcwork/p0025751/results/pretraining/deepseek-vl2-mimic-cxr-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct"
+    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p10-p11-p12-6vision-corrected-early-stopping"
     training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=3, 
@@ -174,12 +224,14 @@ def train_deepseek_vl2():
         fp16=False,
         bf16=True,
         optim="adamw_torch",
-        lr_scheduler_type="linear",
+        lr_scheduler_type="cosine",
         report_to="wandb",  # Options: "wandb", "tensorboard", "none"
-        run_name="deepseek-vl2-mimic-cxr-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct",  # Name for wandb run
+        run_name="deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p10-p11-p12-6vision-corrected-early-stopping",  # Name for wandb run
         remove_unused_columns=False,
         # DeepSpeed config (disabled for single GPU)
         # deepspeed=os.path.join(here, "ds_config.json"),
+        dataloader_num_workers=0,  # KEY FIX
+        dataloader_pin_memory=False,  # KEY FIX
     )
     
     # Initialize Trainer
@@ -241,8 +293,7 @@ def train_deepseek_vl2():
     trainer.train(resume_from_checkpoint=checkpoint)
     
     # Save final model
-    trainer.save_model("../../../../../hpcwork/p0025751/results/pretraining/deepseek-vl2-mimic-cxr-lora-r32-lr1e-4-3epochs-linear-5pctwarmup-6earlystop-100pct-final")
-    
+    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p10-p11-p12-6vision-corrected-early-stopping-final")
     print("Training complete!", flush=True)
 
 

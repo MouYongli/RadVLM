@@ -42,17 +42,17 @@ class TrainingConfig:
     
     model_path: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final"
     base_model_path: str = "deepseek-ai/deepseek-vl2-small"
-    output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model3-datasetp11-25pct-correct-shuffle"
+    output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-2epochs-100evalsteps-beta0.2-model3-datasetp11-25pct"
 
     # Training
-    num_train_epochs:            int   = 3
+    num_train_epochs:            int   = 2
     gradient_accumulation_steps: int   = 4
     learning_rate:               float = 5e-5
     weight_decay:                float = 0.01
     warmup_ratio:                float = 0.1
     max_grad_norm:               float = 1.0
     max_seq_length:              int   = 3072
-    beta:                        float = 0.1
+    beta:                        float = 0.2
 
     # LoRA
     lora_r:              int   = 16
@@ -65,15 +65,15 @@ class TrainingConfig:
 
     # Logging / checkpointing
     logging_steps: int = 50
-    eval_steps:    int = 200
-    save_steps:    int = 200
+    eval_steps:    int = 100
+    save_steps:    int = 100
     eval_samples:  int = 64
     max_checkpoints: int = 3  # Maximum number of checkpoints to keep
     seed:          int = 42
 
     # W&B
     wandb_project: str = "deepseek-vl2-mimic-cxr-dpo"
-    wandb_run:     str = "deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model3-datasetp11-25pct-correct-shuffle"
+    wandb_run:     str = "deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-2epochs-100evalsteps-beta0.2-model3-datasetp11-25pct"
 
 
 def parse_args() -> TrainingConfig:

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple, Union
 from PIL import Image
 
+from scipy.ndimage import gaussian_filter
 
 class AttentionVisualizer:
     """Visualize attention maps from transformer models."""
@@ -78,95 +79,81 @@ class AttentionVisualizer:
     
     def visualize_attention_to_image(
         self,
-        image: Union[Image.Image, str, np.ndarray],
+        image,
         attention: torch.Tensor,
         head_idx: int = 0,
-        token_idx: Optional[int] = None,
+        image_positions=None,
+        patch_grid: tuple = None,      # (H_patches, W_patches) — e.g. (16, 16) for 256 patches
         title: str = "Attention on Image",
-        figsize: Tuple[int, int] = (12, 5),
-        save_path: Optional[str] = None,
-        alpha: float = 0.5
-    ) -> plt.Figure:
-        """
-        Overlay attention weights on an image.
-        
-        Args:
-            image: PIL Image, file path, or numpy array
-            attention: Attention tensor (assuming last dimension is image patches)
-            head_idx: Which attention head to visualize
-            token_idx: Which token position to visualize (if None, averages across tokens)
-            title: Title for the plot
-            figsize: Figure size
-            save_path: Path to save the figure
-            alpha: Transparency of the attention overlay
-            
-        Returns:
-            matplotlib Figure object
-        """
-        # Load image if path provided
+        figsize=(12, 5),
+        save_path=None,
+        alpha: float = 0.5,
+    ):
+        # --- Load image ---
         if isinstance(image, str):
-            image = Image.open(image).convert('RGB')
+            image = Image.open(image).convert("RGB")
         elif isinstance(image, np.ndarray):
             image = Image.fromarray((image * 255).astype(np.uint8))
-        
         img_array = np.array(image)
-        
-        # Extract attention weights
+    
+        # --- Unwrap batch + head ---
         if attention.dim() == 4:
-            attention = attention[0]  # batch
-        if attention.dim() == 3:
-            attention = attention[head_idx]  # specific head
-        
-        attention = attention.detach().cpu().numpy()
-        
-        # If token_idx is None, average attention across all tokens
-        if token_idx is None:
-            att_weights = attention.mean(axis=0)
+            attention = attention[0]          # (heads, seq, seq)
+        attn = attention.mean(dim=0)           # (seq, seq)  — float32 numpy below
+        attn = attn.detach().cpu().float().numpy()
+    
+        # --- Isolate the query token → image patch columns ---
+        # attn[query_row, col] = how much that query attends to token at col
+        row = attn[-1]                 # shape: (seq_len,)
+    
+        if image_positions is not None:
+            img_attn = row[image_positions.cpu().long().numpy()]  # exact patch tokens only
         else:
-            att_weights = attention[token_idx]
+            img_attn = row
+    
+        # --- Reshape to 2-D patch grid ---
+        n_patches = len(img_attn)
+        print(f"[DEBUG] n_patches={n_patches}")  # add temporarily
         
-        # Normalize
-        att_weights = (att_weights - att_weights.min()) / (att_weights.max() - att_weights.min())
+        # Each DeepSeek-VL2 tile is 24x24=576 patches
+        TILE_SIZE = 576
+        n_tiles = n_patches // TILE_SIZE
+        remainder = n_patches % TILE_SIZE
+    
+        if remainder != 0:
+            print(f"[WARN] {n_patches} patches not divisible by {TILE_SIZE}, trimming {remainder}")
+            img_attn = img_attn[:n_tiles * TILE_SIZE]
+    
+        # Average attention across all tiles → one 24x24 map
+        img_attn = img_attn.reshape(n_tiles, 24, 24).mean(axis=0)  # (24, 24)
+        H, W = 24, 24
+    
+        # att2d = img_attn[:H * W].reshape(H, W)
         
-        # Resize attention to match image size (assuming attention to image patches)
-        if att_weights.ndim == 1:
-            # Reshape to square for visualization
-            side = int(np.sqrt(len(att_weights)))
-            if side * side == len(att_weights):
-                att_weights = att_weights.reshape(side, side)
-            else:
-                print(f"Warning: Cannot reshape attention of length {len(att_weights)} to square")
-                att_weights = att_weights.reshape(1, -1)
+        img_attn = (img_attn - img_attn.min()) / (img_attn.max() - img_attn.min() + 1e-8)
+        att2d = img_attn.reshape(H, W)
+        att2d = gaussian_filter(att2d, sigma=1.0)
+
+    
+        # --- Normalize & resize to image resolution ---
         
-        att_weights_resized = np.array(
-            Image.fromarray((att_weights * 255).astype(np.uint8)).resize(
+        att2d = (att2d - att2d.min()) / (att2d.max() - att2d.min() + 1e-8)
+        att_resized = np.array(
+            Image.fromarray((att2d * 255).astype(np.uint8)).resize(
                 (img_array.shape[1], img_array.shape[0]), Image.Resampling.BILINEAR
             )
         ) / 255.0
-        
+    
+        # --- Plot ---
         fig, axes = plt.subplots(1, 3, figsize=figsize)
-        
-        # Original image
-        axes[0].imshow(img_array)
-        axes[0].set_title("Original Image")
-        axes[0].axis('off')
-        
-        # Attention map
-        axes[1].imshow(att_weights_resized, cmap='hot')
-        axes[1].set_title("Attention Map")
-        axes[1].axis('off')
-        
-        # Overlay
+        axes[0].imshow(img_array);           axes[0].set_title("Original Image"); axes[0].axis("off")
+        axes[1].imshow(att_resized, cmap="hot"); axes[1].set_title("Attention Map"); axes[1].axis("off")
         axes[2].imshow(img_array)
-        axes[2].imshow(att_weights_resized, cmap='hot', alpha=alpha)
-        axes[2].set_title("Attention Overlay")
-        axes[2].axis('off')
-        
+        axes[2].imshow(att_resized, cmap="hot", alpha=alpha)
+        axes[2].set_title("Attention Overlay"); axes[2].axis("off")
         fig.suptitle(title)
-        
         if save_path:
-            plt.savefig(save_path, dpi=150, bbox_inches='tight')
-        
+            plt.savefig(save_path, dpi=150, bbox_inches="tight")
         return fig
     
     def visualize_attention_rollout(
