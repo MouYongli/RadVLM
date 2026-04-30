@@ -165,7 +165,7 @@ def train_deepseek_vl2():
             "lora_r": 8,
             "learning_rate": 1e-4,
             "lr_scheduler_type": "cosine",
-            "warmup_ratio": 0.05, # 5% warmup
+            "warmup_ratio": 0.051, # 5% warmup
             "epochs": 3,
             "data_fraction": 1.0,
             "early_stopping_patience": 6
@@ -211,7 +211,7 @@ def train_deepseek_vl2():
         gradient_checkpointing=False, # Deepseek-VL2 does not support gradient checkpointing
         learning_rate=1e-4,
         weight_decay=0.01,
-        warmup_ratio=0.05, # 5% warmup
+        warmup_ratio=0.1, # 10% warmup
         logging_steps=50,
         save_steps=200,  
         eval_steps=200,
