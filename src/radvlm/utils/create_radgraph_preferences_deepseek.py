@@ -7,6 +7,7 @@ from nltk.translate.meteor_score import meteor_score
 from rouge_score import rouge_scorer
 from radgraph import F1RadGraph
 import nltk
+from nltk.translate.meteor_score import meteor_score
 from peft import PeftModel
 import json
 
@@ -29,75 +30,104 @@ def create_radgraph_preferences_deepseek(preference_dataset_path, output_path):
     
     preferences = []
 
-    for item in tqdm(preference_dataset, desc="Creating RadGraph preferences"):
+    f1radgraph = F1RadGraph(reward_level="all", model_type="radgraph-xl", model_cache_dir="/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/.cache/radgraph/0.1.2")
+    
+    
+    BATCH_SIZE = 16
+    LAMBDA = 0.01
+
+
+    all_hyps, all_refs = [], []
+    meteor_scores = []
+    for item in preference_dataset:
+        all_hyps.extend([item['report_1'], item['report_2']])
+        all_refs.extend([item['ground_truth'], item['ground_truth']])
+
+        # Compute meteor scores for each report against the ground truth
+        gt_report = item['ground_truth']
         report_1 = item['report_1']
         report_2 = item['report_2']
-        ground_truth_report = item['ground_truth']
-        
-        f1radgraph = F1RadGraph(reward_level="all", model_type="radgraph-xl", model_cache_dir="/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/.cache/radgraph/0.1.2")
-        _, reward_list, _, _ = f1radgraph(hyps=[report_1, report_2], refs=[ground_truth_report, ground_truth_report])
-        # print(reward_list)
-        
-        if reward_list[2][0] > reward_list[2][1]:  # Compare complete F1 scores
+
+        meteor_1 = meteor_score([gt_report.split()], report_1.split())
+        meteor_2 = meteor_score([gt_report.split()], report_2.split())
+        meteor_scores.append((meteor_1, meteor_2))
+    
+    print(meteor_scores)
+
+    radgraph_results = []
+    for i in tqdm(range(0, len(all_hyps), BATCH_SIZE), desc="Computing radgraph scores"):
+        hyps_batch = all_hyps[i:i+BATCH_SIZE]
+        refs_batch = all_refs[i:i+BATCH_SIZE]
+        _, reward_list, _, _ = f1radgraph(hyps=hyps_batch, refs=refs_batch)
+        radgraph_results.extend(reward_list)
+
+        print("Reward list for current batch:", reward_list)
+
+
+    # Generate preference dataset
+    for idx, item in enumerate(preference_dataset):
+        report_1 = item['report_1']
+        report_2 = item['report_2']
+        gt_report = item['ground_truth']
+        meteor_1, meteor_2 = meteor_scores[idx]
+        radgraph_1_simple = radgraph_results[2*idx][0]
+        radgraph_1_partial = radgraph_results[2*idx][1]
+        radgraph_1_complete = radgraph_results[2*idx][2]
+        radgraph_2_simple = radgraph_results[2*idx + 1][0]
+        radgraph_2_partial = radgraph_results[2*idx + 1][1]
+        radgraph_2_complete = radgraph_results[2*idx + 1][2]
+
+        print("Report pair index:", idx)
+        print("Meteor scores - Report 1:", meteor_1, "Report 2:", meteor_2)
+        print("RadGraph F1 complete scores - Report 1:", radgraph_1_complete, "Report 2:", radgraph_2_complete)
+
+        # Compute overall reward for each report
+        reward_1 = LAMBDA * meteor_1 + (1 - LAMBDA) * radgraph_1_complete
+        reward_2 = LAMBDA * meteor_2 + (1 - LAMBDA) * radgraph_2_complete
+
+        print("Overall rewards - Report 1:", reward_1, "Report 2:", reward_2)
+
+        if reward_1 > reward_2:
             preferences.append({
-                "image_paths": item['image_paths'],
                 "report_1": report_1,
                 "report_2": report_2,
-                "ground_truth": ground_truth_report,
+                "ground_truth": gt_report,
                 "radiologist_preference": "report_1",
-                "radgraph_scores": {
-                    "report_1": {
-                        "simple": reward_list[0][0],
-                        "partial": reward_list[1][0],
-                        "complete": reward_list[2][0],
-                    },
-                    "report_2": {
-                        "simple": reward_list[0][1],
-                        "partial": reward_list[1][1],
-                        "complete": reward_list[2][1],
-                    }
-                }
+                "reward_report_1": reward_1,
+                "reward_report_2": reward_2,
+                "meteor_report_1": meteor_1,
+                "meteor_report_2": meteor_2,
+                "radgraph_complete_report_1": radgraph_1_complete,
+                "radgraph_complete_report_2": radgraph_2_complete
             })
-        elif reward_list[2][0] < reward_list[2][1]:
+        elif reward_2 > reward_1:
             preferences.append({
-                "image_paths": item['image_paths'],
                 "report_1": report_1,
                 "report_2": report_2,
-                "ground_truth": ground_truth_report,
+                "ground_truth": gt_report,
                 "radiologist_preference": "report_2",
-                "radgraph_scores": {
-                    "report_1": {
-                        "simple": reward_list[0][0],
-                        "partial": reward_list[1][0],
-                        "complete": reward_list[2][0],
-                    },
-                    "report_2": {
-                        "simple": reward_list[0][1],
-                        "partial": reward_list[1][1],
-                        "complete": reward_list[2][1],
-                    }
-                }
+                "reward_report_1": reward_1,
+                "reward_report_2": reward_2,
+                "meteor_report_1": meteor_1,
+                "meteor_report_2": meteor_2,
+                "radgraph_complete_report_1": radgraph_1_complete,
+                "radgraph_complete_report_2": radgraph_2_complete
             })
         else:
             preferences.append({
-                "image_paths": item['image_paths'],
                 "report_1": report_1,
                 "report_2": report_2,
-                "ground_truth": ground_truth_report,
-                "radiologist_preference": "report_1",  # If scores are equal, default to report_1 (greedy decoding)
-                "radgraph_scores": {
-                    "report_1": {
-                        "simple": reward_list[0][0],
-                        "partial": reward_list[1][0],
-                        "complete": reward_list[2][0],
-                    },
-                    "report_2": {
-                        "simple": reward_list[0][1],
-                        "partial": reward_list[1][1],
-                        "complete": reward_list[2][1],
-                    }
-                }
+                "ground_truth": gt_report,
+                "radiologist_preference": "report_1", # In case of tie, we can arbitrarily choose one as the preferred report (here we choose report_1)
+                "reward_report_1": reward_1,
+                "reward_report_2": reward_2,
+                "meteor_report_1": meteor_1,
+                "meteor_report_2": meteor_2,
+                "radgraph_complete_report_1": radgraph_1_complete,
+                "radgraph_complete_report_2": radgraph_2_complete
             })
+
+        
         
         
     # Save the RadGraph preferences to a json file
@@ -105,6 +135,6 @@ def create_radgraph_preferences_deepseek(preference_dataset_path, output_path):
         json.dump(preferences, f, indent=4)
     
 if __name__ == "__main__":
-    preference_dataset_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final-generated-report-pairs-p11.json"
-    output_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final-p11_radgraph_preferences.json"
+    preference_dataset_path = "/home/ug301051/jupyterlab/RadVLM/results/dpo_dataset/example_report_pairs.json"
+    output_path = "/home/ug301051/jupyterlab/RadVLM/results/dpo_dataset/example_report_pairs_preference_dataset.json"
     create_radgraph_preferences_deepseek(preference_dataset_path, output_path)

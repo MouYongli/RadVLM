@@ -1,0 +1,60 @@
+[
+    {
+        "study_id": "s59108811",
+        "image_paths": [
+            "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/MIMIC-CXR-processed/p18/p18043576/s59108811/0667debc-3a0d7708-f67c99ca-d8345a9d-45337af6.jpg"
+        ],
+        "report_1": "FINAL REPORT IMPRESSION: As compared to the previous radiograph, no relevant change is seen. The monitoring and support devices are constant in position except for a new right internal jugular vein catheter that projects over midline at approximately level of lower SVC/cavoatrial junction or even slightly higher up as well as an endotracheal tube which terminates above the carina with its tip directed towards left mainstem bronchus (leftward deviation).",
+        "report_2": "FINAL REPORT IMPRESSION: 1. Right chest tube is unchanged in position compared to the prior study with a moderate right apical pneumothorax, which has decreased since ___. There are no other interval changes for air collections within the pleural space.",
+        "ground_truth": "FINAL REPORT IMPRESSION: Previous mild pulmonary edema has improved since ___. ET tube in standard placement. There is no appreciable atelectasis, pleural effusion, or any evidence of pneumothorax. Cardiomediastinal silhouette is normal. Pulmonary vasculature is minimally engorged, but mediastinal veins are normal. Right internal jugular line ends in the upper right atrium, and a nasogastric tube passes into the nondistended stomach and out of view."
+    },
+    {
+        "study_id": "s55117768",
+        "image_paths": [
+            "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/MIMIC-CXR-processed/p18/p18908507/s55117768/7f02956e-fc10453c-bec71040-4461e7e5-8215cd3c.jpg",
+            "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/MIMIC-CXR-processed/p18/p18908507/s55117768/f8aedee4-d4f6c010-753a26b7-bdc304e6-1a56ab89.jpg"
+        ],
+        "report_1": "FINAL REPORT IMPRESSION: 1. No acute cardiopulmonary process identified on this single portable view of the chest, including no evidence for pneumonia or pulmonary edema in particular; however if clinical concern remains high then a dedicated PA and lateral radiograph would be recommended to further assess these findings as well as evaluation with CT scanning is not indicated based upon current history/exam results alone",
+        "report_2": "FINAL REPORT IMPRESSION: In comparison with the study of ___, there again are low lung volumes which accentuate the transverse diameter of the heart. Hazy opacification at both bases could reflect layering effusions and compressive basilar atelectasis, though in view of a clinical history suggesting aspiration or pneumonia from an episode on ___ it would be very difficult to exclude superimposed pulmonary edema. No evidence of pneumothorax",
+        "ground_truth": "FINAL REPORT IMPRESSION: Interval stability of widespread interstitial opacities, nodular opacities, rib fractures as well as cardiomediastinal silhouette."
+    },
+    {
+        "study_id": "s59527321",
+        "image_paths": [
+            "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/MIMIC-CXR-processed/p18/p18410222/s59527321/e06f5726-d4a53208-0a4f4ce5-182760ca-1cc804ed.jpg"
+        ],
+        "report_1": "FINAL REPORT IMPRESSION: As compared to the previous radiograph, no relevant change is seen. The monitoring and support devices are in correct position without evidence of complications such as pneumothorax or displacement from their expected positions",
+        "report_2": "FINAL REPORT IMPRESSION: As compared to prior radiograph from earlier the same date, right-sided central venous catheter is been removed. Cardiomegaly and moderate pulmonary edema are unchanged allowing for differences in patient positioning between studies.",
+        "ground_truth": "FINAL REPORT IMPRESSION: Mild left lower lobe consolidation continues to clear. More severe right lower lobe consolidation has varied in severity, unchanged today since ___. Mediastinal venous dilatation is still present but pulmonary vascular congestion which improved since ___ is stable since ___. Moderate cardiomegaly is also stable. Pleural effusions are presumed, small on the right, minimal on the left. ET tube and left subclavian central venous line and esophageal drainage tube are in standard placements. No pneumothorax."
+    },
+    {
+        "study_id": "s52486839",
+        "image_paths": [
+            "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/MIMIC-CXR-processed/p18/p18112176/s52486839/edde3f03-049239d9-1f13de9d-37301712-11e18a6e.jpg",
+            "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/MIMIC-CXR-processed/p18/p18112176/s52486839/32c8ce50-12c6d753-7ce43646-f6e8c304-2cb51a42.jpg",
+            "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/MIMIC-CXR-processed/p18/p18112176/s52486839/819b1bcd-61612bc4-f3391ef6-35d0a1b9-cc98bcb0.jpg"
+        ],
+        "report_1": "FINAL REPORT IMPRESSION: 1. No acute cardiopulmonary process identified on the current exam, including no evidence of pneumonia or pulmonary edema in this patient with known emphysema and chronic obstructive lung disease as seen previously from ___.",
+        "report_2": "FINAL REPORT IMPRESSION: There is interval progression of right middle lobe collapse with no significant associated left-sided atelectasis. Cardiomegaly remains unchanged and there is a small hiatal hernia, better seen on prior CT from ___.",
+        "ground_truth": "FINAL REPORT FINDINGS: The lungs are clear without focal consolidation, effusion, or pneumothorax. The cardiomediastinal silhouette is normal. No acute osseous abnormality is identified. IMPRESSION: No acute cardiopulmonary process."
+    },
+    {
+        "study_id": "s57526836",
+        "image_paths": [
+            "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/MIMIC-CXR-processed/p18/p18698460/s57526836/35c0d604-76d53c6e-65623922-69fd9e28-b623b9c2.jpg"
+        ],
+        "report_1": "FINAL REPORT IMPRESSION: As compared to the previous radiograph, no relevant change is seen. No evidence of pneumonia or pulmonary edema on this portable frontal view from an upright position with low lung volumes and a slightly rotated patient positioning .",
+        "report_2": "FINAL REPORT IMPRESSION: As compared to ___ chest radiograph, no interval change in widespread bilateral airspace opacities.",
+        "ground_truth": "FINAL REPORT IMPRESSION: AS COMPARED TO ___ CHEST RADIOGRAPH, CARDIOMEDIASTINAL CONTOURS ARE STABLE. NONSPECIFIC OPACITIES PRESENT LEFT LUNG BASE, WHICH COULD BE DUE TO CLINICALLY SUSPECTED ASPIRATION WERE ALTERNATIVELY SECONDARY TO ATELECTASIS OR AN EARLY FOCUS OF INFECTIOUS PNEUMONIA. SMALL LEFT PLEURAL EFFUSION HAS DECREASED IN SIZE IN THE INTERVAL."
+    },
+    {
+        "study_id": "s59210519",
+        "image_paths": [
+            "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/MIMIC-CXR-processed/p18/p18632932/s59210519/3decccd6-40d59a60-e4bbb2cd-fd4083c3-d45b693a.jpg",
+            "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/MIMIC-CXR-processed/p18/p18632932/s59210519/6264c078-05cc036e-46594936-4d935c9a-884511f3.jpg"
+        ],
+        "report_1": "FINAL REPORT IMPRESSION: 1. No acute cardiopulmonary process identified on this single portable view of the chest, including no evidence for pneumonia or pulmonary edema in particular; however if clinical concern remains high then a dedicated PA and lateral radiograph would be recommended to further assess these findings as well as evaluation with CT scanning is not indicated based upon current history/exam results alone",
+        "report_2": "FINAL REPORT IMPRESSION: As compared to the recent radiograph of 1 day earlier, a right internal jugular catheter has been placed and is coiled within an upper SVC. No other relevant change from prior study",
+        "ground_truth": "FINAL REPORT IMPRESSION: In comparison with the scout radiograph from a CT dated ___, there is increased opacification at the right base, consistent with the clinical diagnosis of pleural effusion and volume loss in the right lower lung. The somewhat unusual configuration raises the possibility of a loculated collection. Extensive surgical clips are seen anteriorly from the mid chest through at least the lower abdomen level. No evidence of acute focal pneumonia or vascular congestion."
+    }
+]
