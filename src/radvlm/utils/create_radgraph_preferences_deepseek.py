@@ -1,140 +1,93 @@
-from transformers import AutoModelForCausalLM, AutoProcessor
-import torch
-import os
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from tqdm import tqdm
-from nltk.translate.bleu_score import sentence_bleu
+import json, nltk
 from nltk.translate.meteor_score import meteor_score
-from rouge_score import rouge_scorer
 from radgraph import F1RadGraph
-import nltk
-from nltk.translate.meteor_score import meteor_score
-from peft import PeftModel
-import json
 
-import sys
-sys.path.append("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM")
 
-from src.radvlm.utils.evaluation_utils import compute_metrics
+def compute_meteor_pair(item):
+    gt = item['ground_truth'].split()
+    m1 = meteor_score([gt], item['report_1'].split())
+    m2 = meteor_score([gt], item['report_2'].split())
+    return m1, m2
+
+
+def run_batched_radgraph(scorer, hyps, refs, batch_size):
+    results = []
+    for i in tqdm(range(0, len(hyps), batch_size), desc="RadGraph"):
+        _, reward_list, _, _ = scorer(
+            hyps=hyps[i:i+batch_size],
+            refs=refs[i:i+batch_size]
+        )
+        simple, partial, complete = reward_list
+        results.extend(zip(simple, partial, complete))
+    return results
+
+
+def build_preference(item, meteor_1, meteor_2, rg1, rg2, lam):
+    reward_1 = lam * meteor_1 + (1 - lam) * rg1[2]  # rg[2] = complete score
+    reward_2 = lam * meteor_2 + (1 - lam) * rg2[2]
+    return {
+        "report_1": item['report_1'],
+        "report_2": item['report_2'],
+        "ground_truth": item['ground_truth'],
+        "radiologist_preference": "report_1" if reward_1 >= reward_2 else "report_2",
+        "reward_report_1": reward_1,
+        "reward_report_2": reward_2,
+        "meteor_report_1": meteor_1,
+        "meteor_report_2": meteor_2,
+        "radgraph_complete_report_1": rg1[2],
+        "radgraph_complete_report_2": rg2[2],
+    }
+
 
 def create_radgraph_preferences_deepseek(preference_dataset_path, output_path):
-    """
-    Create RadGraph preferences for DeepSeek evaluation dataset.
-    
-    Args:
-        preference_dataset_path: Path to preference dataset (json file with pairs of reports and images)
-        output_path: Path to save the generated RadGraph preferences (json file)
-    """
-    # Load preference dataset
-    with open(preference_dataset_path, 'r') as f:
-        preference_dataset = json.load(f)
-    
-    preferences = []
+    for resource in ('wordnet', 'omw-1.4'):
+        try:
+            nltk.data.find(resource)
+        except LookupError:
+            nltk.download(resource, quiet=True)
 
-    f1radgraph = F1RadGraph(reward_level="all", model_type="radgraph-xl", model_cache_dir="/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/.cache/radgraph/0.1.2")
-    
-    
-    BATCH_SIZE = 16
+    with open(preference_dataset_path) as f:
+        preference_dataset = json.load(f)
+
+    BATCH_SIZE = 64   # increase from 16 — tune to your VRAM
     LAMBDA = 0.01
 
+    # --- METEOR: parallel CPU execution ---
+    meteor_scores = [compute_meteor_pair(item) for item in tqdm(preference_dataset, desc="METEOR")]
 
-    all_hyps, all_refs = [], []
-    meteor_scores = []
-    for item in preference_dataset:
-        all_hyps.extend([item['report_1'], item['report_2']])
-        all_refs.extend([item['ground_truth'], item['ground_truth']])
+    # --- RadGraph: deduplicate refs ---
+    # Each ground_truth was being annotated twice. By separating report_1 and
+    # report_2 passes we make it trivial to cache ref annotations if radgraph
+    # exposes that API in future; for now we at least keep the structure clean.
+    refs  = [item['ground_truth'] for item in preference_dataset]
+    hyps1 = [item['report_1']     for item in preference_dataset]
+    hyps2 = [item['report_2']     for item in preference_dataset]
 
-        # Compute meteor scores for each report against the ground truth
-        gt_report = item['ground_truth']
-        report_1 = item['report_1']
-        report_2 = item['report_2']
+    f1radgraph = F1RadGraph(
+        reward_level="all",
+        model_type="radgraph-xl",
+        model_cache_dir="/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/.cache/radgraph/0.1.2"
+    )
 
-        meteor_1 = meteor_score([gt_report.split()], report_1.split())
-        meteor_2 = meteor_score([gt_report.split()], report_2.split())
-        meteor_scores.append((meteor_1, meteor_2))
-    
-    print(meteor_scores)
+    rg1 = run_batched_radgraph(f1radgraph, hyps1, refs, BATCH_SIZE)
+    rg2 = run_batched_radgraph(f1radgraph, hyps2, refs, BATCH_SIZE)
 
-    radgraph_results = []
-    for i in tqdm(range(0, len(all_hyps), BATCH_SIZE), desc="Computing radgraph scores"):
-        hyps_batch = all_hyps[i:i+BATCH_SIZE]
-        refs_batch = all_refs[i:i+BATCH_SIZE]
-        _, reward_list, _, _ = f1radgraph(hyps=hyps_batch, refs=refs_batch)
-        radgraph_results.extend(reward_list)
+    # --- Build preferences ---
+    preferences = [
+        build_preference(item, m1, m2, r1, r2, LAMBDA)
+        for item, (m1, m2), r1, r2
+        in zip(preference_dataset, meteor_scores, rg1, rg2)
+    ]
 
-        print("Reward list for current batch:", reward_list)
-
-
-    # Generate preference dataset
-    for idx, item in enumerate(preference_dataset):
-        report_1 = item['report_1']
-        report_2 = item['report_2']
-        gt_report = item['ground_truth']
-        meteor_1, meteor_2 = meteor_scores[idx]
-        radgraph_1_simple = radgraph_results[2*idx][0]
-        radgraph_1_partial = radgraph_results[2*idx][1]
-        radgraph_1_complete = radgraph_results[2*idx][2]
-        radgraph_2_simple = radgraph_results[2*idx + 1][0]
-        radgraph_2_partial = radgraph_results[2*idx + 1][1]
-        radgraph_2_complete = radgraph_results[2*idx + 1][2]
-
-        print("Report pair index:", idx)
-        print("Meteor scores - Report 1:", meteor_1, "Report 2:", meteor_2)
-        print("RadGraph F1 complete scores - Report 1:", radgraph_1_complete, "Report 2:", radgraph_2_complete)
-
-        # Compute overall reward for each report
-        reward_1 = LAMBDA * meteor_1 + (1 - LAMBDA) * radgraph_1_complete
-        reward_2 = LAMBDA * meteor_2 + (1 - LAMBDA) * radgraph_2_complete
-
-        print("Overall rewards - Report 1:", reward_1, "Report 2:", reward_2)
-
-        if reward_1 > reward_2:
-            preferences.append({
-                "report_1": report_1,
-                "report_2": report_2,
-                "ground_truth": gt_report,
-                "radiologist_preference": "report_1",
-                "reward_report_1": reward_1,
-                "reward_report_2": reward_2,
-                "meteor_report_1": meteor_1,
-                "meteor_report_2": meteor_2,
-                "radgraph_complete_report_1": radgraph_1_complete,
-                "radgraph_complete_report_2": radgraph_2_complete
-            })
-        elif reward_2 > reward_1:
-            preferences.append({
-                "report_1": report_1,
-                "report_2": report_2,
-                "ground_truth": gt_report,
-                "radiologist_preference": "report_2",
-                "reward_report_1": reward_1,
-                "reward_report_2": reward_2,
-                "meteor_report_1": meteor_1,
-                "meteor_report_2": meteor_2,
-                "radgraph_complete_report_1": radgraph_1_complete,
-                "radgraph_complete_report_2": radgraph_2_complete
-            })
-        else:
-            preferences.append({
-                "report_1": report_1,
-                "report_2": report_2,
-                "ground_truth": gt_report,
-                "radiologist_preference": "report_1", # In case of tie, we can arbitrarily choose one as the preferred report (here we choose report_1)
-                "reward_report_1": reward_1,
-                "reward_report_2": reward_2,
-                "meteor_report_1": meteor_1,
-                "meteor_report_2": meteor_2,
-                "radgraph_complete_report_1": radgraph_1_complete,
-                "radgraph_complete_report_2": radgraph_2_complete
-            })
-
-        
-        
-        
-    # Save the RadGraph preferences to a json file
     with open(output_path, 'w') as f:
         json.dump(preferences, f, indent=4)
+
+    print(f"Saved {len(preferences)} preferences to {output_path}.")
     
 if __name__ == "__main__":
-    preference_dataset_path = "/home/ug301051/jupyterlab/RadVLM/results/dpo_dataset/example_report_pairs.json"
-    output_path = "/home/ug301051/jupyterlab/RadVLM/results/dpo_dataset/example_report_pairs_preference_dataset.json"
+    preference_dataset_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final-generated-report-pairs-p11.json"
+    output_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/model3-p11reports-1e-2lambda.json"
     create_radgraph_preferences_deepseek(preference_dataset_path, output_path)
