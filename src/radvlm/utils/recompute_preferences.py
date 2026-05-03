@@ -14,14 +14,14 @@ import json
 from pathlib import Path
  
  
-def recompute_item(item: dict, lambda: float) -> dict:
+def recompute_item(item: dict, lam: float) -> dict:
     m1  = item["meteor_report_1"]
     m2  = item["meteor_report_2"]
     rg1 = item["radgraph_complete_report_1"]
     rg2 = item["radgraph_complete_report_2"]
  
-    reward_1 = lambda * m1 + (1 - lambda) * rg1
-    reward_2 = lambda * m2 + (1 - lambda) * rg2
+    reward_1 = lam * m1 + (1 - lam) * rg1
+    reward_2 = lam * m2 + (1 - lam) * rg2
  
     return {
         # keep original text fields
@@ -44,30 +44,31 @@ def recompute_item(item: dict, lambda: float) -> dict:
 def main():
  
     input_path  = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/model3-p11reports-1e-2lambda.json"
-    output_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/model3-p11reports-5e-2lambda.json"
-    lambda      = 0.05
+    output_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/model3-p11reports-5e-1lambda.json"
+    lam         = 0.5
  
-    if not 0.0 <= lambda <= 1.0:
-        raise ValueError(f"--lambda must be in [0, 1], got {lambda}")
+    if not 0.0 <= lam <= 1.0:
+        raise ValueError(f"--lambda must be in [0, 1], got {lam}")
  
     print(f"Loading  : {input_path}")
     with open(input_path) as f:
         dataset = json.load(f)
  
-    recomputed = [recompute_item(item, lambda) for item in dataset]
-
+    recomputed = [recompute_item(item, lam) for item in dataset]
+    n_total = len(recomputed)
+    
     n_metric_flipped = sum(
         1 for orig, new in zip(dataset, recomputed)
         # compare old metric preference (derived from stored rewards) vs new
         if (orig["radiologist_preference"] != new["radiologist_preference"])
     )
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w") as f:
         json.dump(recomputed, f, indent=4)
  
     print(f"Saved    : {output_path}  ({n_total} items)")
-    print(f"Lambda   : {lambda}")
+    print(f"Lambda   : {lam}")
     print(f"Flipped  : {n_metric_flipped} items ({n_metric_flipped / len(dataset):.2%})")
  
 if __name__ == "__main__":
