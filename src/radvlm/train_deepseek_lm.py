@@ -158,14 +158,14 @@ def train_deepseek_vl2():
     import wandb
     wandb.init(
         project="deepseek-vl2-mimic-cxr",
-        name="lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p10-p11-p12-6vision-corrected-early-stopping",
+        name="lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p10-p11-p12-6vision-corrected-early-stopping-2retry",
         config={
             "model": "deepseek-vl2-small",
             "dataset": "mimic-cxr",
             "lora_r": 8,
             "learning_rate": 1e-4,
             "lr_scheduler_type": "cosine",
-            "warmup_ratio": 0.051, # 5% warmup
+            "warmup_ratio": 0.05, # 5% warmup
             "epochs": 3,
             "data_fraction": 1.0,
             "early_stopping_patience": 6
@@ -199,9 +199,11 @@ def train_deepseek_vl2():
         tokenizer=tokenizer,
         mlm=False  # Causal LM
     )
+
+    # data_collator = default_data_collator
     
     # Training arguments
-    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p10-p11-p12-6vision-corrected-early-stopping"
+    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p10-p11-p12-6vision-corrected-early-stopping-2retry"
     training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=3, 
@@ -211,7 +213,7 @@ def train_deepseek_vl2():
         gradient_checkpointing=False, # Deepseek-VL2 does not support gradient checkpointing
         learning_rate=1e-4,
         weight_decay=0.01,
-        warmup_ratio=0.1, # 10% warmup
+        warmup_ratio=0.05, # 10% warmup
         logging_steps=50,
         save_steps=200,  
         eval_steps=200,
@@ -226,7 +228,7 @@ def train_deepseek_vl2():
         optim="adamw_torch",
         lr_scheduler_type="cosine",
         report_to="wandb",  # Options: "wandb", "tensorboard", "none"
-        run_name="deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p10-p11-p12-6vision-corrected-early-stopping",  # Name for wandb run
+        run_name="deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p10-p11-p12-p13-p15-6vision",  # Name for wandb run
         remove_unused_columns=False,
         # DeepSpeed config (disabled for single GPU)
         # deepspeed=os.path.join(here, "ds_config.json"),
@@ -253,39 +255,47 @@ def train_deepseek_vl2():
     checkpoint = None
     if os.path.isdir(output_dir):
         checkpoints = [
-            os.path.join(output_dir, d) 
-            for d in os.listdir(output_dir) 
-            if d.startswith("checkpoint") and not d.endswith(("emergency", "interrupted"))
+            os.path.join(output_dir, d)
+            for d in os.listdir(output_dir)
+            if d.startswith("checkpoint-") and not d.endswith(("emergency", "interrupted"))
         ]
-        
+    
         if checkpoints:
-            # Filter for valid checkpoints (must have required files)
             valid_checkpoints = []
             for ckpt in checkpoints:
-                # Check for essential files
-                required_files = ["trainer_state.json", "adapter_config.json"]
-                has_model = (
-                    os.path.isfile(os.path.join(ckpt, "adapter_model.safetensors")) or
-                    os.path.isfile(os.path.join(ckpt, "training_args.bin"))
-                )
-                
-                if has_model and all(os.path.isfile(os.path.join(ckpt, f)) for f in required_files):
-                    valid_checkpoints.append(ckpt)
+                # A valid PEFT checkpoint MUST have all of these
+                required_files = [
+                    "trainer_state.json",
+                    "adapter_config.json",
+                    "adapter_model.safetensors",  # Actual LoRA weights — non-negotiable
+                    "optimizer.pt",               # Needed for true resume
+                    "scheduler.pt",
+                ]
+                missing = [f for f in required_files if not os.path.isfile(os.path.join(ckpt, f))]
+                if missing:
+                    print(f"⚠️  Skipping incomplete checkpoint: {os.path.basename(ckpt)} "
+                          f"(missing: {missing})", flush=True)
                 else:
-                    print(f"⚠️  Skipping incomplete checkpoint: {os.path.basename(ckpt)}", flush=True)
-            
+                    valid_checkpoints.append(ckpt)
+    
             if valid_checkpoints:
-                # Get the latest valid checkpoint
-                checkpoint = max(valid_checkpoints, key=os.path.getctime)
-                print(f"✓ Found valid checkpoint: {os.path.basename(checkpoint)}")
-                print(f"  Resuming training from step {checkpoint.split('-')[-1]}...\n", flush=True)
+                # ✅ Parse step number from folder name — reliable, no filesystem quirks
+                def get_step(path):
+                    try:
+                        return int(os.path.basename(path).split("-")[-1])
+                    except ValueError:
+                        return -1
+    
+                checkpoint = max(valid_checkpoints, key=get_step)
+                print(f"✓ Resuming from checkpoint: {os.path.basename(checkpoint)} "
+                      f"(step {get_step(checkpoint)})", flush=True)
             else:
-                print("No valid checkpoints found. Starting from scratch...\n", flush=True)
+                print("No valid checkpoints found. Starting from scratch.", flush=True)
         else:
-            print("No checkpoints found. Starting from scratch...\n", flush=True)
+            print("No checkpoints found. Starting from scratch.", flush=True)
     else:
         os.makedirs(output_dir, exist_ok=True)
-        print("Created output directory. Starting from scratch...\n", flush=True)
+        print("Created output directory. Starting from scratch.", flush=True)
     
     
     # Start training (resume from checkpoint if available)
@@ -293,7 +303,7 @@ def train_deepseek_vl2():
     trainer.train(resume_from_checkpoint=checkpoint)
     
     # Save final model
-    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p10-p11-p12-6vision-corrected-early-stopping-final")
+    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p10-p11-p12-6vision-corrected-early-stopping-2retry-final")
     print("Training complete!", flush=True)
 
 
