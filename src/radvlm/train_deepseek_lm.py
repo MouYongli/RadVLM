@@ -158,7 +158,7 @@ def train_deepseek_vl2():
     import wandb
     wandb.init(
         project="deepseek-vl2-mimic-cxr",
-        name="lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p10-p11-p12-6vision-corrected-early-stopping-2retry",
+        name="lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-30pctdata-allsubsets",
         config={
             "model": "deepseek-vl2-small",
             "dataset": "mimic-cxr",
@@ -167,7 +167,7 @@ def train_deepseek_vl2():
             "lr_scheduler_type": "cosine",
             "warmup_ratio": 0.05, # 5% warmup
             "epochs": 3,
-            "data_fraction": 1.0,
+            "data_fraction": 0.3,
             "early_stopping_patience": 6
         }
     )
@@ -186,11 +186,11 @@ def train_deepseek_vl2():
     print("Processor and tokenizer loaded.", flush=True)
     print("Preparing datasets...", flush=True)
     # Prepare datasets
-    raw_data = load_dataset(["p10", "p11", "p12"])
+    raw_data = load_dataset()
     
-    train_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='train', mode="train")
+    train_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='train', mode="train", sample_fraction=0.4)
     
-    val_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='validate', mode="train")
+    val_dataset = RadVLMDatasetDeepseek(raw_data, processor, tokenizer, split='validate', mode="train", sample_fraction=0.4)
     
     print("Datasets prepared.", flush=True)
     # Data collator
@@ -203,7 +203,7 @@ def train_deepseek_vl2():
     # data_collator = default_data_collator
     
     # Training arguments
-    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p10-p11-p12-6vision-corrected-early-stopping-2retry"
+    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-40pctdata-allsubsets"
     training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=3, 
@@ -228,7 +228,7 @@ def train_deepseek_vl2():
         optim="adamw_torch",
         lr_scheduler_type="cosine",
         report_to="wandb",  # Options: "wandb", "tensorboard", "none"
-        run_name="deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p10-p11-p12-p13-p15-6vision",  # Name for wandb run
+        run_name="deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-40pctdata-allsubsets",  # Name for wandb run
         remove_unused_columns=False,
         # DeepSpeed config (disabled for single GPU)
         # deepspeed=os.path.join(here, "ds_config.json"),
@@ -303,7 +303,7 @@ def train_deepseek_vl2():
     trainer.train(resume_from_checkpoint=checkpoint)
     
     # Save final model
-    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p10-p11-p12-6vision-corrected-early-stopping-2retry-final")
+    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-40pctdata-allsubsets-final")
     print("Training complete!", flush=True)
 
 
