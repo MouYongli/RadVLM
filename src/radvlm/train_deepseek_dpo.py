@@ -40,9 +40,9 @@ logger = logging.getLogger(__name__)
 class TrainingConfig:
     # Paths
     
-    model_path: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final"
+    model_path: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p10-p11-p12-p13-p15-6vision-final"
     base_model_path: str = "deepseek-ai/deepseek-vl2-small"
-    output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model3-datasetp11-25pct-correct-shuffle"
+    output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model16-datasetp18-25pct-lambda1e-2"
 
     # Training
     num_train_epochs:            int   = 3
@@ -633,7 +633,8 @@ def main():
 
     # Data
     logger.info("Loading preference dataset ...")
-    preference_data = load_preference_dataset("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final-p11_radgraph_preferences.json")
+    preference_data = load_preference_dataset("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/model16-p18reports-1e-2lambda-with-study-ids.json")
+    print(f"Loaded {len(preference_data)} raw data points.")
     dataset_wrapper = RadVLMDPODataset(
         preference_data, processor, tokenizer,
         max_seq_length=cfg.max_seq_length,
