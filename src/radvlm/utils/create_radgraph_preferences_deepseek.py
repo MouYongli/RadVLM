@@ -29,6 +29,8 @@ def build_preference(item, meteor_1, meteor_2, rg1, rg2, lam):
     reward_1 = lam * meteor_1 + (1 - lam) * rg1[2]  # rg[2] = complete score
     reward_2 = lam * meteor_2 + (1 - lam) * rg2[2]
     return {
+        "study_id": item['study_id'],
+        "image_paths": item['image_paths'],
         "report_1": item['report_1'],
         "report_2": item['report_2'],
         "ground_truth": item['ground_truth'],
