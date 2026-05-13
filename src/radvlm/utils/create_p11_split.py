@@ -107,8 +107,8 @@ def split_dataset(
 
 
 if __name__ == "__main__":
-    json_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final-p11_radgraph_preferences.json"
-    output_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/dataset_splits.csv"
+    json_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/model16-p18reports-1e-2lambda-with-study-ids.json"
+    output_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/split_model16-p18reports-1e-2lambda-with-study-ids.csv"
         
     train_ratio = 0.8
     val_ratio = 0.1
