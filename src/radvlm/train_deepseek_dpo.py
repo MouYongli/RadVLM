@@ -1,5 +1,5 @@
 import os
-os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+os.environ['PYTORCH_ALLOC_CONF'] = 'expandable_segments:True'
 
 import torch
 from transformers import AutoModelForCausalLM, TrainingArguments, get_cosine_schedule_with_warmup
