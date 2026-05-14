@@ -1,5 +1,5 @@
 import os
-os.environ['PYTORCH_ALLOC_CONF'] = 'expandable_segments:True'
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
 import torch
 from transformers import AutoModelForCausalLM, TrainingArguments, get_cosine_schedule_with_warmup
@@ -73,7 +73,7 @@ class TrainingConfig:
 
     # W&B
     wandb_project: str = "deepseek-vl2-mimic-cxr-dpo"
-    wandb_run:     str = "deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model3-datasetp11-25pct-correct-shuffle"
+    wandb_run:     str = "deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model16-datasetp18-25pct"
 
 
 def parse_args() -> TrainingConfig:
@@ -326,61 +326,69 @@ def reference_mode(model):
 
 
 # ── DPO loss ───────────────────────────────────────────────────────────────────
+def to_device(enc: dict, device):
+    return {k: v.to(device) if isinstance(v, torch.Tensor) else v
+            for k, v in enc.items()}
+
 def dpo_step(
     model,
     enc_chosen,   lbl_chosen,
     enc_rejected, lbl_rejected,
-    log_ref_c: torch.Tensor,   # ← precomputed scalars, on CPU
+    log_ref_c: torch.Tensor,
     log_ref_r: torch.Tensor,
     beta: float,
     acc_steps: int = 1,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """
-    Memory-efficient DPO step: only ONE policy computation graph lives in
-    memory at a time, achieved via manual gradient accumulation.
-
-    Returns:
-        loss_val  — detached scalar for logging
-        log_ratio — detached scalar for accuracy logging
-    """
-    device = enc_chosen["input_ids"].device
-
+    device = next(model.parameters()).device
     log_ref_c = log_ref_c.to(device)
     log_ref_r = log_ref_r.to(device)
 
-    # ── 1. Reference log-probs (no grad, freed immediately) ───────────────
-    # with torch.no_grad():
-    #     log_ref_c = completion_log_prob(
-    #         ref_model, enc_chosen,   lbl_chosen,   use_autocast=False).detach()
-    #     torch.cuda.empty_cache()
-    #     log_ref_r = completion_log_prob(
-    #         ref_model, enc_rejected, lbl_rejected, use_autocast=False).detach()
-    #     torch.cuda.empty_cache()
-
-    # ── 2. Peek at rejected value (no grad) to compute chosen's gradient ──
-    with torch.no_grad():
-        log_pi_r_val = completion_log_prob(
-            model, enc_rejected, lbl_rejected).detach()
+    # ── Pass 1: rejected no_grad peek (no graph, just a scalar) ──────────────
+    # Offload chosen to CPU while we peek at rejected
+    enc_chosen_cpu = to_device(enc_chosen, "cpu")
+    lbl_chosen_cpu = lbl_chosen.cpu()
+    del enc_chosen, lbl_chosen
     torch.cuda.empty_cache()
 
-    # ── 3. Chosen forward (graph lives here) ──────────────────────────────
-    log_pi_c = completion_log_prob(model, enc_chosen, lbl_chosen)
+    with torch.no_grad():
+        log_pi_r_val = completion_log_prob(
+            model, enc_rejected, lbl_rejected, use_autocast=True
+        ).detach()
 
-    # Compute log_ratio and loss value (all detached — just for logging/grad)
-    log_ratio = ((log_pi_c.detach() - log_ref_c) -
-                 (log_pi_r_val        - log_ref_r))
+    # Offload rejected to CPU; bring chosen back
+    enc_rejected_cpu = to_device(enc_rejected, "cpu")
+    lbl_rejected_cpu = lbl_rejected.cpu()
+    del enc_rejected, lbl_rejected
+    torch.cuda.empty_cache()
+
+    enc_chosen = to_device(enc_chosen_cpu, device)
+    lbl_chosen = lbl_chosen_cpu.to(device)
+    del enc_chosen_cpu, lbl_chosen_cpu
+    torch.cuda.empty_cache()
+
+    # ── Pass 2: chosen forward + backward (only chosen graph alive) ───────────
+    log_pi_c = completion_log_prob(model, enc_chosen, lbl_chosen)
+    del enc_chosen, lbl_chosen
+    torch.cuda.empty_cache()
+
+    log_ratio = (log_pi_c.detach() - log_ref_c) - (log_pi_r_val - log_ref_r)
     loss_val  = -F.logsigmoid(beta * log_ratio)
 
-    # Analytic gradient:  ∂loss/∂log_pi_c = β·(σ(β·r) - 1)  =  -β·σ(-β·r)
     grad_c = beta * (torch.sigmoid(beta * log_ratio) - 1) / acc_steps
     log_pi_c.backward(grad_c)
     del log_pi_c
     torch.cuda.empty_cache()
 
-    # ── 4. Rejected forward (graph lives here, chosen's is already freed) ─
-    log_pi_r = completion_log_prob(model, enc_rejected, lbl_rejected)
+    # ── Pass 3: rejected forward + backward (only rejected graph alive) ───────
+    enc_rejected = to_device(enc_rejected_cpu, device)
+    lbl_rejected = lbl_rejected_cpu.to(device)
+    del enc_rejected_cpu, lbl_rejected_cpu
+    torch.cuda.empty_cache()
 
-    # Analytic gradient:  ∂loss/∂log_pi_r = β·(1 - σ(β·r))  =  β·σ(-β·r)
+    log_pi_r = completion_log_prob(model, enc_rejected, lbl_rejected)
+    del enc_rejected, lbl_rejected
+    torch.cuda.empty_cache()
+
     grad_r = beta * (1 - torch.sigmoid(beta * log_ratio)) / acc_steps
     log_pi_r.backward(grad_r)
     del log_pi_r
@@ -536,29 +544,35 @@ def precompute_reference_logprobs(
 @torch.no_grad()
 def dpo_loss_eval(
     model,
-    enc_chosen,   lbl_chosen,
+    enc_chosen, lbl_chosen,
     enc_rejected, lbl_rejected,
-    log_ref_c: torch.Tensor,   # precomputed, on CPU
-    log_ref_r: torch.Tensor,
-    beta: float,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    device = enc_chosen["input_ids"].device
+    log_ref_c, log_ref_r,
+    beta,
+    device,
+):
+    # Offload rejected while processing chosen
+    enc_rejected_cpu = to_device(enc_rejected, "cpu")
+    lbl_rejected_cpu = lbl_rejected.cpu()
 
-    log_pi_c = completion_log_prob(model, enc_chosen,   lbl_chosen)
+    log_pi_c = completion_log_prob(model, enc_chosen, lbl_chosen)
     torch.cuda.empty_cache()
+
+    enc_rejected = to_device(enc_rejected_cpu, device)
+    lbl_rejected = lbl_rejected_cpu.to(device)
+
     log_pi_r = completion_log_prob(model, enc_rejected, lbl_rejected)
     torch.cuda.empty_cache()
 
     log_ratio = (log_pi_c - log_ref_c.to(device)) - (log_pi_r - log_ref_r.to(device))
-    loss      = -F.logsigmoid(beta * log_ratio)
+    loss = -F.logsigmoid(beta * log_ratio)
     return loss, log_ratio
 
 
 @torch.no_grad()
 def evaluate(
-    model, processor, eval_records: list, val_cache: dict, beta: float,
-    max_seq_length: int, device: torch.device, max_samples: int,
-) -> dict:
+    model, processor, eval_records, val_cache, beta,
+    max_seq_length, device, max_samples,
+):
     model.eval()
     records = eval_records[:max_samples]
     total_loss = total_acc = total_ratio = 0.0
@@ -575,11 +589,16 @@ def evaluate(
             log_ref_c=cached["log_ref_c"],
             log_ref_r=cached["log_ref_r"],
             beta=beta,
+            device=device,
         )
 
         total_loss  += loss.item()
         total_acc   += float(log_ratio.item() > 0)
         total_ratio += log_ratio.item()
+
+        # Explicitly release caller-side references each iteration
+        del enc_c, lbl_c, enc_r, lbl_r, loss, log_ratio
+        torch.cuda.empty_cache()
 
     n = len(records)
     model.train()
@@ -764,6 +783,7 @@ def main():
                     model, processor, val_data, val_cache,
                     cfg.beta, cfg.max_seq_length, device, cfg.eval_samples,
                 )
+                torch.cuda.empty_cache()
                 logger.info("  eval | " + " | ".join(
                     f"{k.split('/')[-1]}: {v:.4f}" for k, v in eval_metrics.items()
                 ))
