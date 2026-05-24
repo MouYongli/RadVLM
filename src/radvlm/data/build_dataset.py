@@ -1,5 +1,7 @@
 import os
 import json
+import sys
+sys.path.append('/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM')
 from src.radvlm.utils.config import DATA_PROCESSED_DIR, DPO_DATA_PROCESSED_DIR
 
 here = os.path.dirname(os.path.abspath(__file__))
