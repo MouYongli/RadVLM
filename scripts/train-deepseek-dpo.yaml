@@ -25,6 +25,7 @@ environment:
     - HF_HOME=/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/.cache/huggingface
     - TRANSFORMERS_CACHE=/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/.cache/transformers
     - HF_HUB_CACHE=/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/.cache/huggingface/hub
+    - PYTORCH_ALLOC_CONF=expandable_segments:True
     - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 pbs: {}
 resources:
