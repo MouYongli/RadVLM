@@ -1,5 +1,6 @@
 import os
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+os.environ['PYTORCH_ALLOC_CONF'] = 'expandable_segments:True'
 
 import torch
 from transformers import default_data_collator, TrainingArguments, Trainer, EarlyStoppingCallback, AutoProcessor, AutoModelForImageTextToText
@@ -142,7 +143,7 @@ def train_medgemma_lm():
     import wandb
     wandb.init(
         project="medgemma-1.5-mimic-cxr",
-        name="poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-proj-loraparam",
+        name="poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-40pctdata",
         config={
             "model": "medgemma-1.5-4b-it",
             "dataset": "mimic-cxr",
@@ -151,7 +152,7 @@ def train_medgemma_lm():
             "lr_scheduler_type": "cosine",
             "warmup_ratio": 0.05, # 5% warmup
             "epochs": 3,
-            "data_fraction": 1.00,
+            "data_fraction": 0.4,
             "early_stopping_patience": 6
         }
     )
@@ -174,9 +175,9 @@ def train_medgemma_lm():
     # Prepare datasets
     raw_data = load_dataset()
     
-    train_dataset = RadVLMDatasetMedGemma(raw_data, processor, tokenizer, split='train', mode="train", sample_fraction=1.00)  # Use 100% of training data
+    train_dataset = RadVLMDatasetMedGemma(raw_data, processor, tokenizer, split='train', mode="train", sample_fraction=0.4)
     
-    val_dataset = RadVLMDatasetMedGemma(raw_data, processor, tokenizer, split='validate', mode="train")
+    val_dataset = RadVLMDatasetMedGemma(raw_data, processor, tokenizer, split='validate', mode="train", sample_fraction=0.4)
     
     print("Datasets prepared.", flush=True)
     # Data collator
@@ -201,7 +202,7 @@ def train_medgemma_lm():
     ], weight_decay=0.01)
     
     # Training arguments
-    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-proj-loraparam"
+    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-40pctdata"
     training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=3, 
@@ -225,7 +226,7 @@ def train_medgemma_lm():
         # optim="adamw_torch",
         lr_scheduler_type="cosine",
         report_to="wandb",  # Options: "wandb", "tensorboard", "none"
-        run_name="medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-proj-loraparam",  # Name for wandb run
+        run_name="medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-40pctdata",  # Name for wandb run
         remove_unused_columns=False,
         # DeepSpeed config (disabled for single GPU)
         # deepspeed=os.path.join(here, "ds_config.json"),
@@ -291,7 +292,7 @@ def train_medgemma_lm():
     trainer.train(resume_from_checkpoint=checkpoint)
     
     # Save final model
-    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-proj-loraparam-final")
+    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-40pctdata-final")
     
     print("Training complete!", flush=True)
 

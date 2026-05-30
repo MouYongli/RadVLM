@@ -201,6 +201,7 @@ class RadVLMDatasetMedGemma(Dataset):
                 # DataLoader will handle this with collate_fn
                 return None
             else:
+                #return None
                 # In eval, we need all samples for proper metrics
                 raise RuntimeError(f"Failed to process evaluation item {idx}: {str(e)}")
 

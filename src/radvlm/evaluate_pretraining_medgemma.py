@@ -18,9 +18,25 @@ def evaluate_pre_training():
     print("Evaluating pre-trained MedGemma model...", flush=True)
     
     here = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.abspath(os.path.join(here, "../../results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-proj-final"))
+    model_path = os.path.abspath(os.path.join(here, "../../results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-10pctdata-final"))
     evaluator = MedGemmaPretrainingEvaluator(model_path=model_path, base_model_path=MEDGEMMA_BASE_MODEL_PATH)
-    raw_data = load_dataset()
+    raw_data = load_dataset(["p10"])
+
+    #train_dataset = RadVLMDatasetMedGemma(raw_data, evaluator.processor, evaluator.tokenizer, split='train', mode="eval", sample_fraction=0.1)
+
+    #study_ids1 = []
+    #for i in range(len(train_dataset)):
+    #    study_ids1.append(train_dataset[i]["study_id"])
+
+    #train_dataset = RadVLMDatasetMedGemma(raw_data, evaluator.processor, evaluator.tokenizer, split='train', mode="eval", sample_fraction=0.1)
+
+    #study_ids2 = []
+    #for i in range(len(train_dataset)):
+    #    study_ids2.append(train_dataset[i]["study_id"])
+
+    #print(len(study_ids1), len(study_ids2))
+    #print(len(set(study_ids1) & set(study_ids2)))
+        
     
     val_dataset = RadVLMDatasetMedGemma(raw_data, evaluator.processor, evaluator.tokenizer, split='validate', mode="eval")
     # print("val dataset item example:", val_dataset[0], flush=True)
@@ -37,7 +53,7 @@ def evaluate_pre_training():
     study_ids, generated_reports, ground_truth_reports, losses, perplexities = evaluator.evaluate_reports(val_dataloader, max_samples=500)
     # save the study_ids and generated reports to text file for further inspection
     
-    output_file = '/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/generated_reports/generated_reports_medgemma_poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-proj-final.txt'
+    output_file = '/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/generated_reports/generated_reports_medgemma_poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-10pctdata-final.txt'
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write("=" * 80 + "\n")
         f.write("GENERATED REPORTS EVALUATION\n")
