@@ -17,10 +17,10 @@ def evaluate_pre_training():
     print("Evaluating pre-trained DeepSeek VL2 model...", flush=True)
     
     here = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.abspath(os.path.join(here, "../../results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p18-final"))
+    model_path = os.path.abspath(os.path.join(here, "../../results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-80pctdata-allsubsets-final"))
     # print(f"Loading model from: {model_path}", flush=True)
     evaluator = DeepSeekVL2PretrainingEvaluator(model_path=model_path)
-    raw_data = load_dataset(["p18"])
+    raw_data = load_dataset(["p10"])
     # print("Raw data item example:", raw_data[0], flush=True)
     val_dataset = RadVLMDatasetDeepseek(raw_data, evaluator.processor, evaluator.tokenizer, split='validate', mode="eval")
     # print("val dataset item example:", val_dataset[0], flush=True)
@@ -36,7 +36,7 @@ def evaluate_pre_training():
 
     study_ids, generated_reports, ground_truth_reports, losses, perplexities = evaluator.evaluate_reports(val_dataloader, max_samples=500)
     # save the study_ids and generated reports to text file for further inspection
-    output_file = '/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/generated_reports/generated_reports_lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p18-final-evaluated-on-own-evalset.txt'
+    output_file = '/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/generated_reports/generated_reports_lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-80pctdata-allsubsets-final.txt'
     # Ensure parent directories exist
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     

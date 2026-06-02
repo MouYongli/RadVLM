@@ -158,7 +158,7 @@ def train_deepseek_vl2():
     import wandb
     wandb.init(
         project="deepseek-vl2-mimic-cxr",
-        name="lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-40pctdata-allsubsets",
+        name="lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-40pctdata-allsubsets-v2",
         config={
             "model": "deepseek-vl2-small",
             "dataset": "mimic-cxr",
@@ -203,7 +203,7 @@ def train_deepseek_vl2():
     # data_collator = default_data_collator
     
     # Training arguments
-    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-40pctdata-allsubsets"
+    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-40pctdata-allsubsets-v2"
     training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=3, 
@@ -228,7 +228,7 @@ def train_deepseek_vl2():
         optim="adamw_torch",
         lr_scheduler_type="cosine",
         report_to="wandb",  # Options: "wandb", "tensorboard", "none"
-        run_name="deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pctdata-allsubsets",  # Name for wandb run
+        run_name="deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-40pctdata-allsubsets-v2",  # Name for wandb run
         remove_unused_columns=False,
         # DeepSpeed config (disabled for single GPU)
         # deepspeed=os.path.join(here, "ds_config.json"),
@@ -303,7 +303,7 @@ def train_deepseek_vl2():
     trainer.train(resume_from_checkpoint=checkpoint)
     
     # Save final model
-    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pctdata-allsubsets-final")
+    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-40pctdata-allsubsets-v2-final")
     print("Training complete!", flush=True)
 
 
