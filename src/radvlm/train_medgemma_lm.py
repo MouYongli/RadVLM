@@ -34,6 +34,65 @@ from src.radvlm.data.build_dataset import load_dataset
 from src.radvlm.data.medgemma_dataset import RadVLMDatasetMedGemma, create_collate_fn_medgemma
 from src.radvlm.utils.config import MEDGEMMA_BASE_MODEL_PATH
 
+
+from accelerate.utils import operations
+# Patch convert_to_fp32 to be a no-op — we're training in bf16 throughout
+operations.convert_to_fp32 = lambda x: x
+
+
+def chunked_cross_entropy(logits, labels, chunk_size=512, ignore_index=-100):
+    loss = torch.tensor(0.0, device=logits.device, dtype=logits.dtype)
+    total_tokens = torch.tensor(0, device=logits.device)
+
+    for i in range(0, logits.size(0), chunk_size):
+        chunk_logits = logits[i:i+chunk_size]   # bf16, no cast
+        chunk_labels = labels[i:i+chunk_size]
+        mask = chunk_labels != ignore_index
+        if mask.sum() == 0:
+            continue
+        chunk_loss = torch.nn.functional.cross_entropy(
+            chunk_logits,
+            chunk_labels,
+            ignore_index=ignore_index,
+            reduction='sum'
+        )
+        loss = loss + chunk_loss
+        total_tokens += mask.sum()
+
+    return loss / total_tokens.float().clamp(min=1)
+
+
+class BF16LogitsTrainer(Trainer):
+    def compute_loss(self, model, inputs, num_items_in_batch=None, **kwargs):
+        labels = inputs.pop("labels")
+        outputs = model(**inputs)
+        logits = outputs.logits  # [batch, seq_len, vocab]
+
+        # Shift
+        shift_logits = logits[:, :-1, :]   # [batch, seq_len-1, vocab]
+        shift_labels = labels[:, 1:]        # [batch, seq_len-1]
+
+        # Explicitly flatten both
+        vocab_size = shift_logits.size(-1)
+        shift_logits = shift_logits.reshape(-1, vocab_size)  # [batch*(seq_len-1), vocab]
+        shift_labels = shift_labels.reshape(-1)               # [batch*(seq_len-1)]
+
+        loss = chunked_cross_entropy(shift_logits, shift_labels, chunk_size=512)
+        return loss
+
+
+    def prediction_step(self, model, inputs, prediction_loss_only, ignore_keys=None):
+        inputs = self._prepare_inputs(inputs)
+        labels = inputs.get("labels")
+
+        with torch.no_grad():
+            with self.compute_loss_context_manager():
+                loss = self.compute_loss(model, inputs)
+
+        loss = loss.mean().detach()
+
+        return (loss, None, None)  # (loss, logits, labels) — skip logits entirely
+        
 def setup_model_with_lora(model_path: str = MEDGEMMA_BASE_MODEL_PATH):
     """
     Load DeepSeek-VL2 and apply LoRA
@@ -47,7 +106,10 @@ def setup_model_with_lora(model_path: str = MEDGEMMA_BASE_MODEL_PATH):
     
     model = AutoModelForImageTextToText.from_pretrained(
         model_path,
-        local_files_only=True
+        local_files_only=True,
+        device_map="auto",          # ← add this
+        torch_dtype=torch.bfloat16, # ← add this
+        low_cpu_mem_usage=True,     # ← add this
     )
     # processor = AutoProcessor.from_pretrained(model_path)
 
@@ -64,7 +126,7 @@ def setup_model_with_lora(model_path: str = MEDGEMMA_BASE_MODEL_PATH):
     # Configure LoRA
     lora_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
-        r=32,
+        r=8,
         lora_alpha=32,
         lora_dropout=0.05,
         bias="none",
@@ -116,7 +178,7 @@ def setup_model_with_lora(model_path: str = MEDGEMMA_BASE_MODEL_PATH):
             "model.vision_tower.vision_model.encoder.layers.26.mlp.fc1",
             "model.vision_tower.vision_model.encoder.layers.26.mlp.fc2",
         ],
-        modules_to_save = ["model.multi_modal_projector"],
+        # modules_to_save = ["model.multi_modal_projector"],
         inference_mode=False,
     )
 
@@ -143,16 +205,16 @@ def train_medgemma_lm():
     import wandb
     wandb.init(
         project="medgemma-1.5-mimic-cxr",
-        name="poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-40pctdata",
+        name="poc-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pctdata",
         config={
             "model": "medgemma-1.5-4b-it",
             "dataset": "mimic-cxr",
-            "lora_r": 32,
+            "lora_r": 8,
             "learning_rate": 1e-4,
             "lr_scheduler_type": "cosine",
             "warmup_ratio": 0.05, # 5% warmup
             "epochs": 3,
-            "data_fraction": 0.4,
+            "data_fraction": 1,
             "early_stopping_patience": 6
         }
     )
@@ -175,9 +237,9 @@ def train_medgemma_lm():
     # Prepare datasets
     raw_data = load_dataset()
     
-    train_dataset = RadVLMDatasetMedGemma(raw_data, processor, tokenizer, split='train', mode="train", sample_fraction=0.4)
+    train_dataset = RadVLMDatasetMedGemma(raw_data, processor, tokenizer, split='train', mode="train", sample_fraction=1)
     
-    val_dataset = RadVLMDatasetMedGemma(raw_data, processor, tokenizer, split='validate', mode="train", sample_fraction=0.4)
+    val_dataset = RadVLMDatasetMedGemma(raw_data, processor, tokenizer, split='validate', mode="train", sample_fraction=1)
     
     print("Datasets prepared.", flush=True)
     # Data collator
@@ -194,22 +256,29 @@ def train_medgemma_lm():
     projector_params = [p for n, p in model.named_parameters() if "multi_modal_projector" in n and p.requires_grad]
     other_params = [p for n, p in model.named_parameters() if "multi_modal_projector" not in n and p.requires_grad]
     
-    import bitsandbytes as bnb
+    # import bitsandbytes as bnb
 
-    optimizer = bnb.optim.AdamW8bit([
-        {"params": projector_params, "lr": 3e-4},
-        {"params": other_params, "lr": 1e-4}
-    ], weight_decay=0.01)
+    # optimizer = bnb.optim.AdamW8bit([
+    #     {"params": projector_params, "lr": 3e-4},
+    #     {"params": other_params, "lr": 1e-4}
+    # ], weight_decay=0.01)
     
     # Training arguments
-    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-40pctdata"
+    output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pctdata"
+    import torch
+    print(f"CUDA available: {torch.cuda.is_available()}")
+    print(f"Device count: {torch.cuda.device_count()}")
+    print(f"Current device: {torch.cuda.current_device()}")
+
     training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=3, 
         per_device_train_batch_size=1,
         per_device_eval_batch_size=1,
         gradient_accumulation_steps=16,
-        gradient_checkpointing=False, # Deepseek-VL2 does not support gradient checkpointing
+        #gradient_checkpointing=False, # Deepseek-VL2 does not support gradient checkpointing
+        gradient_checkpointing=True,
+        gradient_checkpointing_kwargs={"use_reentrant": False},
         learning_rate=1e-4,
         weight_decay=0.01,
         warmup_ratio=0.05, # 5% warmup
@@ -223,23 +292,25 @@ def train_medgemma_lm():
         greater_is_better=False,  # Lower loss is better
         fp16=False,
         bf16=True,
-        # optim="adamw_torch",
+        optim="adamw_torch",
         lr_scheduler_type="cosine",
         report_to="wandb",  # Options: "wandb", "tensorboard", "none"
-        run_name="medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-40pctdata",  # Name for wandb run
+        run_name="medgemma-1.5-mimic-cxr-poc-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pctdata",  # Name for wandb run
         remove_unused_columns=False,
         # DeepSpeed config (disabled for single GPU)
         # deepspeed=os.path.join(here, "ds_config.json"),
+        dataloader_num_workers=0,
+        dataloader_pin_memory=False,
     )
     
     # Initialize Trainer
-    trainer = Trainer(
+    trainer = BF16LogitsTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         data_collator=collate_fn,
-        optimizers=(optimizer, None),
+        # optimizers=(optimizer, None),
         callbacks=[
             EarlyStoppingCallback(
                 early_stopping_patience=6,  # Stop if no improvement for 6 eval_steps
@@ -292,7 +363,7 @@ def train_medgemma_lm():
     trainer.train(resume_from_checkpoint=checkpoint)
     
     # Save final model
-    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-40pctdata-final")
+    trainer.save_model("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pctdata-final")
     
     print("Training complete!", flush=True)
 
