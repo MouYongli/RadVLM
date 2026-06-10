@@ -18,13 +18,13 @@ def evaluate_pre_training():
     print("Checking dataset similarity with data fraction...", flush=True)
     
     here = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.abspath(os.path.join(here, "../../results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-40pctdata-bf16-final"))
+    model_path = os.path.abspath(os.path.join(here, "../results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-40pctdata-bf16-final"))
     evaluator = MedGemmaPretrainingEvaluator(model_path=model_path, base_model_path=MEDGEMMA_BASE_MODEL_PATH)
     raw_data = load_dataset(["p10"])
 
     study_ids_all = []
     for n in range(5):
-        train_dataset = RadVLMDatasetMedGemma(raw_data, evaluator.processor, evaluator.tokenizer, split='train', mode="eval", sample_fraction=0.1)
+        train_dataset = RadVLMDatasetMedGemma(raw_data, evaluator.processor, evaluator.tokenizer, split='train', mode="eval", sample_fraction=0.3)
     
         study_ids = []
         for i in range(len(train_dataset)):
