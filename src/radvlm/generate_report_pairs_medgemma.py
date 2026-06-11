@@ -183,31 +183,35 @@ class MedGemmaReportPairGenerator:
         return results
 
 
-def generate_reports( max_samples=500):
+def generate_reports():
     """Generate two reports using the pre-trained MedGemma model for a given dataset for DPO preference data curation.
-    
-    Args:
-        max_samples: Maximum number of samples to process
     """
     
     print("Generating report pairs using pre-trained MedGemma model...", flush=True)
     
     here = os.path.dirname(os.path.abspath(__file__))
-    model_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final"
+    model_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-30pctdata-bf16-final"
     
     print(f"Initializing report generator with model: {model_path}", flush=True)
     report_generator = MedGemmaReportPairGenerator(model_path=model_path)
     
     print("Loading dataset...", flush=True)
     raw_data = load_dataset()
-    
+
+    dataset_exclude = RadVLMDatasetMedGemma(raw_data, report_generator.processor, report_generator.tokenizer, split='train', mode="eval", sample_fraction=0.3)
+    # study_ids_to_exclude = []
+    # for i in range(len(dataset_exclude)):
+    #     study_ids_to_exclude.append(dataset_exclude[i]["study_id"])
+
+    study_ids_to_exclude = {dataset_exclude[i]["study_id"] for i in range(len(dataset_exclude))}
     dpo_dataset = RadVLMDatasetMedGemma(
         raw_data, 
         report_generator.processor, 
         report_generator.tokenizer, 
-        split='test', 
+        split='train', 
         mode="eval", 
-        sample_fraction=0.7
+        sample_fraction=0.03, # 3% of remaining data ~ 2500 data points
+        exclude=study_ids_to_exclude
     )
     
     collate_fn = create_collate_fn_medgemma(report_generator.processor)
@@ -220,10 +224,8 @@ def generate_reports( max_samples=500):
         pin_memory=True
     )
 
-    print(f"Generating report pairs for up to {max_samples} samples...", flush=True)
     results = report_generator.generate_report_pairs(
         dpo_dataloader, 
-        max_samples=max_samples,
         max_new_tokens=2000,
         temperature=0.7,
         top_p=0.9
@@ -240,7 +242,7 @@ def generate_reports( max_samples=500):
     output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset"
     os.makedirs(output_dir, exist_ok=True)
     
-    output_file = os.path.join(output_dir, "medgemma-generated-report-pairs.txt")
+    output_file = os.path.join(output_dir, "medgemma-1.5-mimic-cxr-poc-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-30pctdata-bf16-final-generated-report-pairs.txt")
     print(f"\nSaving reports to {output_file}", flush=True)
 
     with open(output_file, 'w') as f:
@@ -256,7 +258,7 @@ def generate_reports( max_samples=500):
                 f.write(ground_truth_reports[idx] + "\n")
     
     # Also save results as JSON for easier parsing later
-    json_output_file = os.path.join(output_dir, "medgemma-generated-report-pairs.json")
+    json_output_file = os.path.join(output_dir, "medgemma-1.5-mimic-cxr-poc-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-30pctdata-bf16-final-generated-report-pairs.json")
     print(f"\nSaving reports to {json_output_file}", flush=True) 
     if len(ground_truth_reports) != len(study_ids):
         print("Warning: Number of ground truth reports does not match number of generated reports.", flush=True) 

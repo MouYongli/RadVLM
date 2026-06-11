@@ -10,7 +10,7 @@ from src.radvlm.utils.config import DATA_PROCESSED_DIR
 
 
 class RadVLMDatasetMedGemma(Dataset):
-    def __init__(self, data, processor, tokenizer, max_seq_length=3072, split=None, create_stats=False, mode='train', sample_fraction=1.0):
+    def __init__(self, data, processor, tokenizer, max_seq_length=3072, split=None, create_stats=False, mode='train', sample_fraction=1.0, exclude={}):
         """
         RadVLM Dataset for MedGemma model.
         Args:
@@ -29,6 +29,7 @@ class RadVLMDatasetMedGemma(Dataset):
         self.max_seq_length = max_seq_length
         self.split = split
         self.mode = mode
+        self.exclude = exclude
         if split is not None:
             self.data = self._filter_data_by_split(self.data, split, sample_fraction=sample_fraction)
         
@@ -69,7 +70,7 @@ class RadVLMDatasetMedGemma(Dataset):
                         filtered_data_item["images"].append(image)
                 else:
                     print(f"No split information found for image: {image_filename}", flush=True)
-            if filtered_data_item["images"]:
+            if filtered_data_item["images"] and os.path.basename(filtered_data_item["file"]).replace('.txt', '') not in self.exclude:
                 filtered_data.append(filtered_data_item)
                 if len(images) != len(filtered_data_item["images"]):
                     print(f"Item {item.get('file', 'unknown')} - kept {len(filtered_data_item['images'])} out of {len(images)} images for split '{split}'", flush=True)
