@@ -40,9 +40,9 @@ logger = logging.getLogger(__name__)
 class TrainingConfig:
     # Paths
     
-    model_path: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p16-final"
+    model_path: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-60pctdata-allsubsets-final"
     base_model_path: str = "deepseek-ai/deepseek-vl2-small"
-    output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model32-datasetp11-25pct"
+    output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model23-5pctdataset-frommodel23-1e-2lambda"
 
     # Training
     num_train_epochs:            int   = 3
@@ -73,7 +73,7 @@ class TrainingConfig:
 
     # W&B
     wandb_project: str = "deepseek-vl2-mimic-cxr-dpo"
-    wandb_run:     str = "deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model32-datasetp11-25pct"
+    wandb_run:     str = "deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model23-5pctdataset-frommodel23-1e-2lambda"
 
 
 def parse_args() -> TrainingConfig:
@@ -633,7 +633,7 @@ def main():
 
     # Data
     logger.info("Loading preference dataset ...")
-    preference_data = load_preference_dataset("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final-p11_radgraph_preferences_renamed.json")
+    preference_data = load_preference_dataset("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/model23-5pctdatasetreports-1e-2lambda.json")
 
     print(f"Loaded perference dataset with {len(preference_data)} items")
     dataset_wrapper = RadVLMDPODataset(

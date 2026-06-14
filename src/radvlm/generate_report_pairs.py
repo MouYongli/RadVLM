@@ -146,11 +146,14 @@ def generate_reports():
     print("Generating reports using pre-trained DeepSeek VL2 model...", flush=True)
     
     here = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(here, "../../results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p10-p11-p12-p13-p15-6vision-final")
+    model_path = os.path.join(here, "../../results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-60pctdata-allsubsets-final")
     report_generator = DeepSeekVL2ReportPairGenerator(model_path=model_path)
-    raw_data = load_dataset(["p18"])
+    raw_data = load_dataset()
+
+    dataset_exclude = RadVLMDatasetDeepseek(raw_data, report_generator.processor, report_generator.tokenizer, split='train', mode="eval", sample_fraction=0.6)
+    study_ids_to_exclude = {dataset_exclude[i]["study_id"] for i in range(len(dataset_exclude))}
     
-    dpo_dataset = RadVLMDatasetDeepseek(raw_data, report_generator.processor, report_generator.tokenizer, split="train", mode="eval", sample_fraction=0.25)
+    dpo_dataset = RadVLMDatasetDeepseek(raw_data, report_generator.processor, report_generator.tokenizer, split="train", mode="eval", sample_fraction=0.1, exclude=study_ids_to_exclude)
     # print(dpo_dataset[0])
     
     # Custom collate function that includes all necessary fields
@@ -193,7 +196,7 @@ def generate_reports():
             ground_truth_reports.append(gt_report)
             image_paths.append(images)
 
-    output_file = os.path.join(here, "../../results/dpo_dataset/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p10-p11-p12-p13-p15-6vision-final-generated-report-pairs-p18.txt")
+    output_file = os.path.join(here, "../../results/dpo_dataset/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-60pctdata-allsubsets-final-generated-report-pairs-10pctdataset.txt")
 
     # Create output directory if it doesn't exist
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
@@ -208,7 +211,7 @@ def generate_reports():
             f.write("="*80 + "\n")
     
     # Also save results as JSON for easier parsing later
-    json_output_file = os.path.join(here, "../../results/dpo_dataset/lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-p10-p11-p12-p13-p15-6vision-final-generated-report-pairs-p18.json")
+    json_output_file = os.path.join(here, "../../results/dpo_dataset/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-60pctdata-allsubsets-final-generated-report-pairs-10pctdataset.json")
     print(f"\nSaving reports to {json_output_file}", flush=True) 
     if len(ground_truth_reports) != len(study_ids):
         print("Warning: Number of ground truth reports does not match number of generated reports.", flush=True) 

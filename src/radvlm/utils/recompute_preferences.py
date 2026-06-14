@@ -25,6 +25,8 @@ def recompute_item(item: dict, lam: float) -> dict:
  
     return {
         # keep original text fields
+        "study_id":               item["study_id"],
+        "image_paths":            item["image_paths"],
         "report_1":               item["report_1"],
         "report_2":               item["report_2"],
         "ground_truth":           item["ground_truth"],
@@ -43,9 +45,9 @@ def recompute_item(item: dict, lam: float) -> dict:
  
 def main():
  
-    input_path  = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/model16-p18reports-1e-2lambda.json"
-    output_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/model16-p18reports-1e-1lambda.json"
-    lam         = 0.1
+    input_path  = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/model23-5pctdatasetreports-1e-2lambda.json"
+    output_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/model23-5pctdatasetreports-5e-1lambda.json"
+    lam         = 0.5
  
     if not 0.0 <= lam <= 1.0:
         raise ValueError(f"--lambda must be in [0, 1], got {lam}")
