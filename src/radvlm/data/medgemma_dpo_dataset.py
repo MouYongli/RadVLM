@@ -5,7 +5,7 @@ from PIL import Image
 import torch
 import torch.nn.functional as F
 
-from src.radvlm.utils.config import DATA_PROCESSED_DIR
+from src.radvlm.utils.config import DATA_PROCESSED_DIR, DPO_DATA_PROCESSED_DIR
 
 class RadVLMDPODatasetMedGemma:
     def __init__(self, data, processor, tokenizer, max_seq_length=3072, split=None):
@@ -48,7 +48,7 @@ class RadVLMDPODatasetMedGemma:
 
     def _filter_data_by_split(self, data, split):
         """Filter data by split using local split file"""
-        split_file = os.path.join(os.path.dirname(__file__), "preference-data-split-radgraph.csv")
+        split_file = os.path.join(DPO_DATA_PROCESSED_DIR, "split-medgemma-model8-3pctdatasetreports.csv")
         
         if not os.path.exists(split_file):
             print(f"Warning: Split file not found at {split_file}. Using all data.", flush=True)

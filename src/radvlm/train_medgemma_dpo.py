@@ -48,8 +48,8 @@ logger = logging.getLogger(__name__)
 class TrainingConfig:
     # Paths
     
-    model_path: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r32-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pct-vision-final"
-    output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/medgemma-1.5-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1"
+    model_path: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pctdata-final"
+    output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/medgemma-1.5-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model15-3pctdataset-frommodel8-1e-2lambda"
 
     # Training
     num_train_epochs:            int   = 3
@@ -70,17 +70,25 @@ class TrainingConfig:
         "gate_proj", "up_proj", "down_proj",
     ])
 
+    # # Logging / checkpointing
+    # logging_steps: int = 1
+    # eval_steps:    int = 1
+    # save_steps:    int = 2
+    # eval_samples:  int = 64
+    # seed:          int = 42
+    # max_checkpoints: int = 3
+    
     # Logging / checkpointing
-    logging_steps: int = 1
-    eval_steps:    int = 1
-    save_steps:    int = 2
+    logging_steps: int = 50
+    eval_steps:    int = 200
+    save_steps:    int = 200
     eval_samples:  int = 64
+    max_checkpoints: int = 3  # Maximum number of checkpoints to keep
     seed:          int = 42
-    max_checkpoints: int = 3
 
     # W&B
     wandb_project: str = "medgemma-1.5-mimic-cxr-dpo"
-    wandb_run:     str = "dpo-lora-r16-lr5e-5-beta0.1"
+    wandb_run:     str = "medgemma-1.5-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model15-3pctdataset-frommodel8-1e-2lambda"
 
 
 def parse_args() -> TrainingConfig:
@@ -402,7 +410,7 @@ def main():
 
     # Data
     logger.info("Loading preference dataset ...")
-    preference_data = load_preference_dataset()
+    preference_data = load_preference_dataset("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/medgemma-model8-3pctdatasetreports-1e-2lambda.json")
     dataset_wrapper = RadVLMDPODatasetMedGemma(
         preference_data, processor, processor.tokenizer,
         max_seq_length=cfg.max_seq_length,

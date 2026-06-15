@@ -48,7 +48,7 @@ def load_dataset() -> list:
         print(f"Error loading dataset: {e}", flush=True)
         return []
     
-def load_preference_dataset() -> list:
+def load_preference_dataset(dataset_path) -> list:
     """
     Load preference dataset with image and text pairs.
 
@@ -58,7 +58,7 @@ def load_preference_dataset() -> list:
     # Assume the dataset is stored in a json file with preference pairs
     
     here = os.path.dirname(os.path.abspath(__file__))
-    dataset_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/medgemma_radgraph_preferences.json"
+    # dataset_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/medgemma_radgraph_preferences.json"
 
     try:
         with open(dataset_path, 'r') as f:
