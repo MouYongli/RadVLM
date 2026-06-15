@@ -210,7 +210,7 @@ def generate_reports():
         report_generator.tokenizer, 
         split='train', 
         mode="eval", 
-        sample_fraction=0.03, # 3% of remaining data ~ 2500 data points
+        sample_fraction=0.06, # 3% of remaining data ~ 2500 data points
         exclude=study_ids_to_exclude
     )
     
@@ -242,7 +242,7 @@ def generate_reports():
     output_dir = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset"
     os.makedirs(output_dir, exist_ok=True)
     
-    output_file = os.path.join(output_dir, "medgemma-1.5-mimic-cxr-poc-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-30pctdata-bf16-final-generated-report-pairs.txt")
+    output_file = os.path.join(output_dir, "medgemma-1.5-mimic-cxr-poc-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-30pctdata-bf16-final-generated-report-pairs-6pctdataset.txt")
     print(f"\nSaving reports to {output_file}", flush=True)
 
     with open(output_file, 'w') as f:
@@ -258,7 +258,7 @@ def generate_reports():
                 f.write(ground_truth_reports[idx] + "\n")
     
     # Also save results as JSON for easier parsing later
-    json_output_file = os.path.join(output_dir, "medgemma-1.5-mimic-cxr-poc-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-30pctdata-bf16-final-generated-report-pairs.json")
+    json_output_file = os.path.join(output_dir, "medgemma-1.5-mimic-cxr-poc-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-30pctdata-bf16-final-generated-report-pairs-6pctdataset.json")
     print(f"\nSaving reports to {json_output_file}", flush=True) 
     if len(ground_truth_reports) != len(study_ids):
         print("Warning: Number of ground truth reports does not match number of generated reports.", flush=True) 
