@@ -90,6 +90,6 @@ def create_radgraph_preferences_deepseek(preference_dataset_path, output_path):
     print(f"Saved {len(preferences)} preferences to {output_path}.")
     
 if __name__ == "__main__":
-    preference_dataset_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-60pctdata-allsubsets-final-generated-report-pairs-5pctdataset.json"
-    output_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/model23-5pctdatasetreports-1e-2lambda.json"
+    preference_dataset_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-60pctdata-allsubsets-final-generated-report-pairs-10pctdataset.json"
+    output_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/model23-10pctdatasetreports-1e-2lambda.json"
     create_radgraph_preferences_deepseek(preference_dataset_path, output_path)
