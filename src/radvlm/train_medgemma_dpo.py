@@ -59,7 +59,7 @@ class TrainingConfig:
         "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/medgemma-1.5-mimic-cxr-poc-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pctdata-final"
     )
     output_dir: str = (
-        "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/medgemma-1.5-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model15-6pctdataset-frommodel8-1e-1lambda"
+        "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/medgemma-1.5-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model15-6pctdataset-frommodel8-1e-2lambda-discrete"
     )
 
     # Training
@@ -92,7 +92,7 @@ class TrainingConfig:
     # W&B
     wandb_project: str = "medgemma-1.5-mimic-cxr-dpo"
     wandb_run:     str = (
-        "medgemma-1.5-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model15-6pctdataset-frommodel8-1e-1lambda"
+        "medgemma-1.5-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model15-6pctdataset-frommodel8-1e-2lambda-discrete"
     )
 
 
@@ -544,7 +544,7 @@ def main():
     # ── Data ──────────────────────────────────────────────────────────────
     logger.info("Loading preference dataset ...")
     preference_data = load_preference_dataset(
-        "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/medgemma-model8-6pctdatasetreports-1e-1lambda.json"
+        "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/medgemma-model8-6pctdatasetreports-1e-2lambda-discrete.json"
     )
     dataset_wrapper = RadVLMDPODatasetMedGemma(
         preference_data, processor, processor.tokenizer,

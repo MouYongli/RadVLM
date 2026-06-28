@@ -17,11 +17,19 @@ from pathlib import Path
 def recompute_item(item: dict, lam: float) -> dict:
     m1  = item["meteor_report_1"]
     m2  = item["meteor_report_2"]
+
+    if m1 >= m2:
+        m1_discrete = 1
+        m2_discrete = 0
+    else:
+        m1_discrete = 0
+        m2_discrete = 1
+        
     rg1 = item["radgraph_complete_report_1"]
     rg2 = item["radgraph_complete_report_2"]
  
-    reward_1 = lam * m1 + (1 - lam) * rg1
-    reward_2 = lam * m2 + (1 - lam) * rg2
+    reward_1 = lam * m1_discrete + (1 - lam) * rg1
+    reward_2 = lam * m2_discrete + (1 - lam) * rg2
  
     return {
         # keep original text fields
@@ -46,8 +54,8 @@ def recompute_item(item: dict, lam: float) -> dict:
 def main():
  
     input_path  = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/medgemma-model8-6pctdatasetreports-1e-2lambda.json"
-    output_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/medgemma-model8-6pctdatasetreports-1e-1lambda.json"
-    lam         = 0.1
+    output_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/medgemma-model8-6pctdatasetreports-1e-2lambda-discrete.json"
+    lam         = 0.01
  
     if not 0.0 <= lam <= 1.0:
         raise ValueError(f"--lambda must be in [0, 1], got {lam}")
