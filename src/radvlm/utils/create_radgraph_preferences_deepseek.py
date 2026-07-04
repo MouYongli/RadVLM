@@ -84,6 +84,9 @@ def create_radgraph_preferences_deepseek(preference_dataset_path, output_path):
         in zip(preference_dataset, meteor_scores, rg1, rg2)
     ]
 
+    # remove items, where item[radgraph_complete_report_1]==0 and item[radgraph_complete_report_2]==0
+    preferences = [item for item in preferences if item["radgraph_complete_report_1"] != 0 or item["radgraph_complete_report_2"] != 0]
+    
     with open(output_path, 'w') as f:
         json.dump(preferences, f, indent=4)
 
