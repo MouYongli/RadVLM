@@ -53,8 +53,8 @@ def recompute_item(item: dict, lam: float) -> dict:
  
 def main():
  
-    input_path  = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/model23-10pctdatasetreports-1e-2lambda-discrete.json"
-    output_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/model23-10pctdatasetreports-1e-2lambda-discrete-processed.json"
+    input_path  = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/model23-10pctdatasetreports-5e-1lambda-discrete.json"
+    output_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/model23-10pctdatasetreports-5e-1lambda-discrete-processed.json"
     lam         = 0.5
  
     if not 0.0 <= lam <= 1.0:
@@ -69,6 +69,14 @@ def main():
 
     # keep only items where radgraph_complete_report_1 != 0 or radgraph_complete_report_2 != 0
     recomputed = [item for item in recomputed if item["radgraph_complete_report_1"] != 0 or item["radgraph_complete_report_2"] != 0]
+    recomputed = [
+        data for data in recomputed
+        if not (
+            (data["radiologist_preference"] == "report_1" and data["radgraph_complete_report_1"] == 0)
+            or
+            (data["radiologist_preference"] == "report_2" and data["radgraph_complete_report_2"] == 0)
+        )
+    ]
     print("preprocessed: ", len(recomputed))
     # for item in dataset:
     # if item["radgraph_complete_report_1"] != 0 or item["radgraph_complete_report_2"] != 0:
