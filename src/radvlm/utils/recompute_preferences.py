@@ -53,8 +53,8 @@ def recompute_item(item: dict, lam: float) -> dict:
  
 def main():
  
-    input_path  = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/medgemma-model8-6pctdatasetreports-1e-2lambda.json"
-    output_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/medgemma-model8-6pctdatasetreports-1e-2lambda-discrete.json"
+    input_path  = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/medgemma-model8-6pctdatasetreports-5e-1lambda-discrete.json"
+    output_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/medgemma-model8-6pctdatasetreports-5e-1lambda-discrete-processed.json"
     lam         = 0.01
  
     if not 0.0 <= lam <= 1.0:
@@ -65,6 +65,12 @@ def main():
         dataset = json.load(f)
  
     recomputed = [recompute_item(item, lam) for item in dataset]
+    print("recomputed: ", len(recomputed))
+
+    # keep only items where radgraph_complete_report_1 != 0 or radgraph_complete_report_2 != 0
+    recomputed = [item for item in recomputed if item["radgraph_complete_report_1"] != 0 or item["radgraph_complete_report_2"] != 0]
+    print("preprocessed: ", len(recomputed))
+    
     n_total = len(recomputed)
     
     n_metric_flipped = sum(
