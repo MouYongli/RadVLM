@@ -48,7 +48,7 @@ class RadVLMDPODatasetMedGemma:
 
     def _filter_data_by_split(self, data, split):
         """Filter data by split using local split file"""
-        split_file = os.path.join(DPO_DATA_PROCESSED_DIR, "split-medgemma-model8-6pctdatasetreports.csv")
+        split_file = os.path.join(DPO_DATA_PROCESSED_DIR, "split-medgemma-model8-3pctdatasetreports.csv")
         
         if not os.path.exists(split_file):
             print(f"Warning: Split file not found at {split_file}. Using all data.", flush=True)
