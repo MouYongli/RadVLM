@@ -36,8 +36,20 @@ def run_batched_radgraph(scorer, hyps, refs, batch_size):
 
 
 def build_preference(item, meteor_1, meteor_2, rg1, rg2, lam):
-    reward_1 = lam * meteor_1 + (1 - lam) * rg1[2]  # rg[2] = complete score
-    reward_2 = lam * meteor_2 + (1 - lam) * rg2[2]
+
+    if meteor_1 >= meteor_2:
+        m1_discrete = 1
+        m2_discrete = 0
+    else:
+        m1_discrete = 0
+        m2_discrete = 1
+        
+ 
+    reward_1 = lam * m1_discrete + (1 - lam) * rg1
+    reward_2 = lam * m2_discrete + (1 - lam) * rg2
+    
+    # reward_1 = lam * meteor_1 + (1 - lam) * rg1[2]  # rg[2] = complete score
+    # reward_2 = lam * meteor_2 + (1 - lam) * rg2[2]
     return {
         "study_id": item['study_id'],
         "image_paths": item['image_paths'],
@@ -95,6 +107,14 @@ def create_radgraph_preferences_medgemma(preference_dataset_path, output_path):
     ]
 
     preferences = [item for item in preferences if item["radgraph_complete_report_1"] != 0 or item["radgraph_complete_report_2"] != 0]
+    preferences = [
+        data for data in preferences
+        if not (
+            (data["radiologist_preference"] == "report_1" and data["radgraph_complete_report_1"] == 0)
+            or
+            (data["radiologist_preference"] == "report_2" and data["radgraph_complete_report_2"] == 0)
+        )
+    ]
 
     with open(output_path, 'w') as f:
         json.dump(preferences, f, indent=4)
