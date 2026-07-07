@@ -53,8 +53,8 @@ def recompute_item(item: dict, lam: float) -> dict:
  
 def main():
  
-    input_path  = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/model23-10pctdatasetreports-5e-1lambda-discrete.json"
-    output_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/model23-10pctdatasetreports-5e-1lambda-discrete-processed.json"
+    input_path  = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/model23-5pctdatasetreports-1e-2lambda-discrete-processed-corrected-sampling.json"
+    output_path = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/model23-5pctdatasetreports-5e-1lambda-discrete-processed-corrected-sampling.json"
     lam         = 0.5
  
     if not 0.0 <= lam <= 1.0:
