@@ -18,7 +18,7 @@ def evaluate_pre_training():
     print("Evaluating DPO-trained MedGemma model...", flush=True)
     
     here = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.abspath(os.path.join(here, "../../results/dpo/medgemma-1.5-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model15-deepseek-dataset-small-5e-1lambda/best_model"))
+    model_path = os.path.abspath(os.path.join(here, "../../results/dpo/medgemma-1.5-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-basemodel-dataset-small-1e-2lambda/best_model"))
     evaluator = MedGemmaPretrainingEvaluator(model_path=model_path, base_model_path=MEDGEMMA_BASE_MODEL_PATH)
     raw_data = load_dataset(["p10"])
     
@@ -37,7 +37,7 @@ def evaluate_pre_training():
     study_ids, generated_reports, ground_truth_reports, losses, perplexities = evaluator.evaluate_reports(val_dataloader, max_samples=500)
     # save the study_ids and generated reports to text file for further inspection
     
-    output_file = '/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/generated_reports/generated_reports_dpo-lora-r16-lr5e-5-beta0.1-model15-deepseek-dataset-small-5e-1lambda.txt'
+    output_file = '/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/generated_reports/generated_reports_dpo-lora-r16-lr5e-5-beta0.1-basemodel-dataset-small-1e-2lambda.txt'
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write("=" * 80 + "\n")
         f.write("GENERATED REPORTS EVALUATION\n")
