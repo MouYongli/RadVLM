@@ -39,10 +39,11 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TrainingConfig:
     # Paths
-    
-    model_path: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pctdata-allsubsets-final"
+
+    # model_path: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/pretraining/deepseek-vl2-mimic-cxr-lora-r8-lr1e-4-3epochs-cosine-5pctwarmup-6earlystop-100pctdata-allsubsets-final"
     base_model_path: str = "deepseek-ai/deepseek-vl2-small"
-    output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model27-medgemma-small-dataset-5e-1lambda"
+    model_path = base_model_path
+    output_dir: str = "/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo/deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-basemodel-dataset-small-1e-2lambda"
 
     # Training
     num_train_epochs:            int   = 3
@@ -73,7 +74,7 @@ class TrainingConfig:
 
     # W&B
     wandb_project: str = "deepseek-vl2-mimic-cxr-dpo"
-    wandb_run:     str = "deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-model27-medgemma-small-dataset-5e-1lambda"
+    wandb_run:     str = "deepseek-vl2-mimic-cxr-dpo-lora-r16-lr5e-5-beta0.1-basemodel-dataset-small-1e-2lambda"
 
 
 def parse_args() -> TrainingConfig:
@@ -112,35 +113,35 @@ def patch_prepare_inputs_embeds(model):
 
     import types
     base.prepare_inputs_embeds = types.MethodType(patched_prepare_inputs_embeds, base)
-    
+
 
 # ── Model loading ──────────────────────────────────────────────────────────────
 def setup_model(model_path: str, base_model_path="deepseek-ai/deepseek-vl2-small"):
     """
     Load DeepSeek-VL2 with optional LoRA adapter
-    
+
     Args:
         model_path: HuggingFace model ID or local path to base model
         adapter_path: Path to pretrained LoRA adapter (from SFT training)
     """
-    
+
     print("Loading base model...", flush=True)
     device='cuda' if torch.cuda.is_available() else 'cpu'
-    
+
     # Check if we're loading an existing adapter
     has_adapter = os.path.exists(os.path.join(model_path, "adapter_config.json"))
-    
+
     if has_adapter:
         # Load existing PEFT model with adapter
         print(f"Loading PEFT model with existing adapter from {model_path}...", flush=True)
-        
+
         # Read base model path from adapter config
         with open(os.path.join(model_path, "adapter_config.json"), 'r') as f:
             adapter_config = json.load(f)
             if "base_model_name_or_path" in adapter_config:
                 base_model_path = adapter_config["base_model_name_or_path"]
                 print(f"Base model path found in adapter config: {base_model_path}", flush=True)
-        
+
         # Load base model first
         base_model = AutoModelForCausalLM.from_pretrained(
             base_model_path,
@@ -149,7 +150,7 @@ def setup_model(model_path: str, base_model_path="deepseek-ai/deepseek-vl2-small
             device_map="auto",
             low_cpu_mem_usage=True
         )
-        
+
         # Load PEFT adapter on top
         model = PeftModel.from_pretrained(
             base_model,
@@ -167,7 +168,7 @@ def setup_model(model_path: str, base_model_path="deepseek-ai/deepseek-vl2-small
             device_map="auto",
             low_cpu_mem_usage=True
         ).to(device)
-        
+
         lora_config = LoraConfig(
             task_type=TaskType.CAUSAL_LM,
             r=16,
@@ -185,24 +186,24 @@ def setup_model(model_path: str, base_model_path="deepseek-ai/deepseek-vl2-small
             ],
             inference_mode=False,
         )
-        
+
         print("Applying new LoRA adapter...", flush=True)
         model = get_peft_model(model, lora_config)
 
     print(f"Loading processor and tokenizer from {base_model_path}...", flush=True)
     processor: DeepseekVLV2Processor = DeepseekVLV2Processor.from_pretrained(base_model_path)
     tokenizer = processor.tokenizer
-    
+
     # Freeze vision encoder
     for name, param in model.named_parameters():
         if "vision_tower" in name or "visual" in name or "vision_model" in name:
             param.requires_grad = False
-    
+
     print("Vision encoder frozen.", flush=True)
-    
+
     model.print_trainable_parameters()
     print("Model setup complete.", flush=True)
-    
+
     return model, processor, tokenizer
 
 
@@ -235,9 +236,9 @@ def encode_single(
         inference_mode=False,  # ensure generation prompt is added for correct tokenisation
     )
     # Convert BatchCollateOutput to dict
-    full_enc = {k: v.to(device) if isinstance(v, torch.Tensor) else v 
+    full_enc = {k: v.to(device) if isinstance(v, torch.Tensor) else v
                 for k, v in vars(full_enc).items()}
-    
+
     # Convert images to bfloat16 if present
     if full_enc.get("images") is not None and isinstance(full_enc["images"], torch.Tensor):
         full_enc["images"] = full_enc["images"].to(dtype=torch.bfloat16)
@@ -245,13 +246,13 @@ def encode_single(
     # Find where the assistant's response starts by searching for the assistant token
     assistant_token = "<|Assistant|>"
     assistant_token_ids = processor.tokenizer.encode(
-        assistant_token, 
+        assistant_token,
         add_special_tokens=False
     )
-    
+
     # Convert input_ids to list for searching
     input_ids_list = full_enc["input_ids"][0].tolist()
-    
+
     # Search for the assistant token sequence
     prompt_len = None
     for i in range(len(input_ids_list) - len(assistant_token_ids) + 1):
@@ -259,7 +260,7 @@ def encode_single(
             # Position AFTER the assistant token is where completion starts
             prompt_len = i + len(assistant_token_ids)
             break
-    
+
     if prompt_len is None:
         logger.warning("Could not find assistant token in sequence, using fallback")
         # Fallback: estimate based on image tokens (DeepSeek-VL2 uses 576 tokens per image)
@@ -290,7 +291,7 @@ def completion_log_prob(
     images = enc.get("images")
     if images is not None and isinstance(images, torch.Tensor):
         images = images.to(dtype=torch.bfloat16)
-        
+
     ctx = autocast(dtype=torch.bfloat16) if use_autocast else contextmanager(lambda: iter([None]))()
     with ctx:
         logits = model(
@@ -348,22 +349,13 @@ def dpo_step(
     log_ref_c = log_ref_c.to(device)
     log_ref_r = log_ref_r.to(device)
 
-    # ── 1. Reference log-probs (no grad, freed immediately) ───────────────
-    # with torch.no_grad():
-    #     log_ref_c = completion_log_prob(
-    #         ref_model, enc_chosen,   lbl_chosen,   use_autocast=False).detach()
-    #     torch.cuda.empty_cache()
-    #     log_ref_r = completion_log_prob(
-    #         ref_model, enc_rejected, lbl_rejected, use_autocast=False).detach()
-    #     torch.cuda.empty_cache()
-
-    # ── 2. Peek at rejected value (no grad) to compute chosen's gradient ──
+    # ── 1. Peek at rejected value (no grad) to compute chosen's gradient ──
     with torch.no_grad():
         log_pi_r_val = completion_log_prob(
             model, enc_rejected, lbl_rejected).detach()
     torch.cuda.empty_cache()
 
-    # ── 3. Chosen forward (graph lives here) ──────────────────────────────
+    # ── 2. Chosen forward (graph lives here) ──────────────────────────────
     log_pi_c = completion_log_prob(model, enc_chosen, lbl_chosen)
 
     # Compute log_ratio and loss value (all detached — just for logging/grad)
@@ -377,7 +369,7 @@ def dpo_step(
     del log_pi_c
     torch.cuda.empty_cache()
 
-    # ── 4. Rejected forward (graph lives here, chosen's is already freed) ─
+    # ── 3. Rejected forward (graph lives here, chosen's is already freed) ─
     log_pi_r = completion_log_prob(model, enc_rejected, lbl_rejected)
 
     # Analytic gradient:  ∂loss/∂log_pi_r = β·(1 - σ(β·r))  =  β·σ(-β·r)
@@ -417,7 +409,7 @@ def save_checkpoint(model, processor, optimizer, scheduler, scaler, step: int, o
         state_dict["scaler"] = scaler.state_dict()
     torch.save(state_dict, ckpt_dir / "optimizer.pt")
     logger.info(f"Checkpoint saved → {ckpt_dir}")
-    
+
     # Clean up old checkpoints if limit is set
     if max_checkpoints is not None and max_checkpoints > 0:
         cleanup_old_checkpoints(out_dir, max_checkpoints)
@@ -464,8 +456,10 @@ class BestModelTracker:
         logger.info(f"★ New best {self.metric}={val:.4f} → {self.save_dir}")
         return True
 
+
 @torch.no_grad()
 def precompute_reference_logprobs(
+    model,                      # the already-loaded, PEFT-wrapped policy model
     ref_model_path: str,
     base_model_path: str,
     all_records: list,
@@ -475,28 +469,58 @@ def precompute_reference_logprobs(
     cache_path: str,
 ) -> dict:
     """
-    Load the SFT reference model, compute log-probs for all samples,
-    cache them, then delete the model before training starts.
+    Compute π_ref log-probs for every sample and cache them to disk.
+
+    Two supported setups:
+
+    1. `ref_model_path` points to a *trained SFT adapter* directory (i.e.
+       it contains adapter_config.json). This is the "DPO after SFT" case:
+       we load that adapter on top of a fresh base-model copy and use it
+       as a standalone frozen reference model.
+
+    2. `ref_model_path` has no adapter_config.json — e.g. you're running
+       DPO directly on the base model, so ref_model_path == base_model_path.
+       In that case there is nothing separate to load: π_ref is just the
+       base model's own frozen weights, which are already sitting inside
+       `model` (the LoRA adapter hasn't been trained yet). We simply
+       reuse `model` with its adapter disabled via `reference_mode`,
+       instead of loading a second full model copy.
     """
     cache_file = Path(cache_path) / "ref_logprobs.pt"
     if cache_file.exists():
         logger.info(f"Loading cached reference log-probs from {cache_file}")
         return torch.load(cache_file, map_location="cpu")
 
-    logger.info("Loading reference model for log-prob precomputation...")
-    
-    # Load base model
-    base = AutoModelForCausalLM.from_pretrained(
-        base_model_path,
-        trust_remote_code=True,
-        torch_dtype=torch.bfloat16,
-        device_map="auto",
-        low_cpu_mem_usage=True,
-    )
-    # Load the SFT adapter (the correct reference: your SFT checkpoint)
-    ref_model = PeftModel.from_pretrained(base, ref_model_path, is_trainable=False)
-    patch_prepare_inputs_embeds(ref_model)
-    ref_model.eval()
+    has_adapter = os.path.exists(os.path.join(ref_model_path, "adapter_config.json"))
+
+    ref_model = None
+    base = None
+
+    if has_adapter:
+        logger.info(f"Loading standalone reference model with adapter from {ref_model_path} ...")
+        base = AutoModelForCausalLM.from_pretrained(
+            base_model_path,
+            trust_remote_code=True,
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+            low_cpu_mem_usage=True,
+        )
+        # Load the SFT adapter (the correct reference: your SFT checkpoint)
+        ref_model = PeftModel.from_pretrained(base, ref_model_path, is_trainable=False)
+        patch_prepare_inputs_embeds(ref_model)
+        ref_model.eval()
+
+        forward_model = ref_model
+        step_ctx = lambda: contextmanager(lambda: iter([None]))()  # no-op
+    else:
+        logger.info(
+            f"No adapter_config.json found at '{ref_model_path}' — training "
+            "DPO directly on the base model. Reusing the current model's "
+            "frozen base weights (LoRA disabled) as π_ref; no extra model "
+            "copy will be loaded."
+        )
+        forward_model = model
+        step_ctx = lambda: reference_mode(model)
 
     cache = {}
     for i, rec in enumerate(tqdm(all_records, desc="Precomputing ref log-probs")):
@@ -508,10 +532,11 @@ def precompute_reference_logprobs(
             processor, rec["prompt"], rec["rejected"],
             rec["images"], max_seq_length, device,
         )
-        log_ref_c = completion_log_prob(ref_model, enc_c, lbl_c, use_autocast=False)
-        torch.cuda.empty_cache()
-        log_ref_r = completion_log_prob(ref_model, enc_r, lbl_r, use_autocast=False)
-        torch.cuda.empty_cache()
+        with step_ctx():
+            log_ref_c = completion_log_prob(forward_model, enc_c, lbl_c, use_autocast=False)
+            torch.cuda.empty_cache()
+            log_ref_r = completion_log_prob(forward_model, enc_r, lbl_r, use_autocast=False)
+            torch.cuda.empty_cache()
 
         # Use a stable key — index is fine if you don't shuffle before caching
         cache[i] = {
@@ -524,11 +549,12 @@ def precompute_reference_logprobs(
     torch.save(cache, cache_file)
     logger.info(f"Reference log-probs cached → {cache_file}")
 
-    # Free memory before training
-    del ref_model, base
-    torch.cuda.empty_cache()
-    import gc; gc.collect()
-    logger.info("Reference model deleted from memory.")
+    # Free memory before training (only if we loaded a separate model)
+    if ref_model is not None:
+        del ref_model, base
+        torch.cuda.empty_cache()
+        import gc; gc.collect()
+        logger.info("Standalone reference model deleted from memory.")
 
     return cache
 
@@ -625,15 +651,9 @@ def main():
     patch_prepare_inputs_embeds(model)
     processor.tokenizer.padding_side = "right"
 
-    # Load a separate frozen reference model
-    # ref_model, _, _ = setup_model(cfg.model_path, cfg.base_model_path)
-    # for p in ref_model.parameters():
-    #     p.requires_grad = False
-    # ref_model.eval()
-
     # Data
     logger.info("Loading preference dataset ...")
-    preference_data = load_preference_dataset("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/medgemma-model8-3pctdatasetreports-5e-1lambda-discrete-processed.json")
+    preference_data = load_preference_dataset("/pfss/mlde/workspaces/mlde_wsp_RWTH_MedReport/ag88juba/RadVLM/results/dpo_dataset/model23-5pctdatasetreports-1e-2lambda-discrete-processed-corrected-sampling.json")
 
     print(f"Loaded perference dataset with {len(preference_data)} items")
     dataset_wrapper = RadVLMDPODataset(
@@ -646,7 +666,8 @@ def main():
     all_data   = train_data + val_data
 
     ref_cache = precompute_reference_logprobs(
-        ref_model_path=cfg.model_path,   # your SFT checkpoint
+        model=model,
+        ref_model_path=cfg.model_path,   # SFT checkpoint dir, or == base_model_path if none
         base_model_path=cfg.base_model_path,
         all_records=all_data,
         processor=processor,
@@ -732,7 +753,7 @@ def main():
                 "lr":   f"{scheduler.get_last_lr()[0]:.2e}",
                 "step": global_step,
             })
-            
+
             if sample_idx % acc != 0:
                 continue
 
